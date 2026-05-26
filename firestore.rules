@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Helper Functions
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidPortfolio(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'positions', 'closedPositions']) &&
+             data.keys().size() >= 5 &&
+             data.userId == request.auth.uid &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.positions is list && data.positions.size() <= 200 &&
+             data.closedPositions is list && data.closedPositions.size() <= 500;
+    }
+
+    // Portfolios Collection
+    match /portfolios/{portfolioId} {
+      allow read: if isSignedIn() && existing().userId == request.auth.uid;
+      
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                    isValidId(portfolioId) &&
+                    isValidPortfolio(incoming()) &&
+                    incoming().id == portfolioId;
+
+      allow update: if isSignedIn() &&
+                    isValidId(portfolioId) &&
+                    existing().userId == request.auth.uid &&
+                    isValidPortfolio(incoming()) &&
+                    incoming().id == existing().id &&
+                    incoming().userId == existing().userId &&
+                    // Check if only allowed fields are updated
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'positions', 'closedPositions', 'updatedAt']);
+
+      allow delete: if isSignedIn() &&
+                    isValidId(portfolioId) &&
+                    existing().userId == request.auth.uid;
+    }
+  }
+}

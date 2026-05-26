@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Georgia:ital,wght@0,400;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    background-color: #0A0A0C;
+    color: #E5E7EB;
+  }
+}
+
+@layer utilities {
+  .serif {
+    font-family: 'Georgia', serif;
+  }
+  .gold-text {
+    color: #C5A059;
+  }
+  .card-bg {
+    background-color: #141417;
+    border: 1px solid #222226;
+  }
+  .green-glow {
+    color: #4ADE80;
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.2);
+  }
+  .red-glow {
+    color: #F87171;
+    text-shadow: 0 0 10px rgba(248, 113, 113, 0.2);
+  }
+  .input-field {
+    background-color: #1C1C1F;
+    border: 1px solid #333333;
+    padding: 0.75rem;
+    border-radius: 4px;
+    color: white;
+    width: 100%;
+  }
+  .action-btn {
+    background-color: #C5A059;
+    color: black;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .action-btn:hover {
+    opacity: 0.9;
+  }
+  .label-text {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #6B7280;
+    letter-spacing: 0.1em;
+  }
+}

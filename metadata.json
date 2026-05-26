@@ -1,0 +1,6 @@
+{
+  "name": "如果我當初有買",
+  "description": "選擇台股的股票股數、買進日期並觀察報酬率的模擬倉應用程式。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
