@@ -41,7 +41,7 @@ service cloud.firestore {
                     incoming().id == existing().id &&
                     incoming().userId == existing().userId &&
                     // Check if only allowed fields are updated
-                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'positions', 'closedPositions', 'updatedAt']);
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'positions', 'closedPositions', 'updatedAt', 'sortOrder', 'createdAt']);
 
       allow delete: if isSignedIn() &&
                     isValidId(portfolioId) &&

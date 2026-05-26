@@ -17,6 +17,10 @@ function App() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [isLoadingPortfolios, setIsLoadingPortfolios] = useState(true);
 
+  const [isGuest, setIsGuest] = useState<boolean>(() => {
+    return localStorage.getItem('is_guest_mode') === 'true';
+  });
+
   const [activePortfolioId, setActivePortfolioId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'active' | 'closed' | 'compare'>('active');
   const [quotes, setQuotes] = useState<Record<string, QuoteData>>({});
@@ -57,12 +61,63 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
-        setPortfolios([]);
-        setIsLoadingPortfolios(false);
+        if (!isGuest) {
+          setPortfolios([]);
+          setIsLoadingPortfolios(false);
+        }
+      } else {
+        setIsGuest(false);
+        localStorage.removeItem('is_guest_mode');
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [isGuest]);
+
+  // Load guest mode portfolios if applicable
+  useEffect(() => {
+    if (user) return;
+    if (!isGuest) {
+      setPortfolios([]);
+      setIsLoadingPortfolios(false);
+      return;
+    }
+
+    setIsLoadingPortfolios(true);
+    try {
+      const cached = localStorage.getItem('portfolios_guest');
+      if (cached) {
+        const parsed = JSON.parse(cached) as Portfolio[];
+        parsed.sort((a, b) => {
+          const orderA = a.sortOrder !== undefined ? a.sortOrder : (a.createdAt || 0);
+          const orderB = b.sortOrder !== undefined ? b.sortOrder : (b.createdAt || 0);
+          return orderA - orderB;
+        });
+        setPortfolios(parsed);
+        const savedActiveId = localStorage.getItem('active_portfolio_id_guest');
+        if (savedActiveId && parsed.some(p => p.id === savedActiveId)) {
+          setActivePortfolioId(savedActiveId);
+        } else {
+          setActivePortfolioId(parsed[0].id);
+        }
+      } else {
+        const defaultPort: Portfolio = {
+          id: crypto.randomUUID(),
+          name: '預設組合',
+          positions: [],
+          closedPositions: [],
+          createdAt: Date.now(),
+          sortOrder: 0
+        };
+        setPortfolios([defaultPort]);
+        setActivePortfolioId(defaultPort.id);
+        localStorage.setItem('portfolios_guest', JSON.stringify([defaultPort]));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingPortfolios(false);
+    }
+  }, [user, isGuest]);
 
   useEffect(() => {
     if (!user) return;
@@ -113,6 +168,16 @@ function App() {
   };
 
   const syncActivePortfolio = async (updated: Portfolio) => {
+    if (isGuest) {
+      const idx = portfolios.findIndex(p => p.id === updated.id);
+      if (idx !== -1) {
+        const copy = [...portfolios];
+        copy[idx] = { ...updated, updatedAt: Date.now() };
+        setPortfolios(copy);
+        localStorage.setItem('portfolios_guest', JSON.stringify(copy));
+      }
+      return;
+    }
     try {
       await setDoc(doc(db, 'portfolios', updated.id), { ...updated, updatedAt: Date.now() }, { merge: true });
     } catch (err) {
@@ -209,23 +274,42 @@ function App() {
   };
 
   const handleCreatePortfolio = async (name: string) => {
-    if (!user) return;
+    if (!user && !isGuest) return;
     const maxOrder = portfolios.reduce((max, p) => Math.max(max, p.sortOrder || 0), 0);
     const newPort: Portfolio = { 
       id: crypto.randomUUID(), 
       name, 
       positions: [], 
       closedPositions: [],
-      userId: user.uid,
+      userId: user?.uid || '',
       createdAt: Date.now(),
       sortOrder: maxOrder + 1
     };
+
+    if (isGuest) {
+      const updatedList = [...portfolios, newPort];
+      setPortfolios(updatedList);
+      localStorage.setItem('portfolios_guest', JSON.stringify(updatedList));
+      setActivePortfolioId(newPort.id);
+      setActiveTab('active');
+      return;
+    }
+
     await handleCreatePortfolioInDB(newPort);
     setActivePortfolioId(newPort.id);
     setActiveTab('active');
   };
 
   const handleRenamePortfolio = async (newName: string) => {
+    if (isGuest && selectedRenamePortfolio) {
+      const updatedList = portfolios.map(p => 
+        p.id === selectedRenamePortfolio.id ? { ...p, name: newName, updatedAt: Date.now() } : p
+      );
+      setPortfolios(updatedList);
+      localStorage.setItem('portfolios_guest', JSON.stringify(updatedList));
+      setSelectedRenamePortfolio(null);
+      return;
+    }
     if (!user || !selectedRenamePortfolio) return;
     try {
       const docRef = doc(db, 'portfolios', selectedRenamePortfolio.id);
@@ -269,6 +353,14 @@ function App() {
 
     // Instant local feedback
     setPortfolios(updatedPortfolios);
+
+    if (isGuest) {
+      const mapped = updatedPortfolios.map((p, idx) => ({ ...p, sortOrder: idx, updatedAt: Date.now() }));
+      setPortfolios(mapped);
+      localStorage.setItem('portfolios_guest', JSON.stringify(mapped));
+      setDraggedId(null);
+      return;
+    }
 
     // Save batch on Firestore
     const batch = writeBatch(db);
@@ -368,6 +460,22 @@ function App() {
                     <LogOut size={18} />
                   </button>
                 </div>
+             ) : isGuest ? (
+                <div className="flex items-center gap-4">
+                  <span className="text-xs bg-[#1C1C1F] border border-[#222226] text-[#C5A059] px-2.5 py-1 rounded">
+                    訪客體驗中 (本地端儲存)
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setIsGuest(false);
+                      localStorage.removeItem('is_guest_mode');
+                    }} 
+                    className="p-2 rounded hover:bg-[#141417] text-[#6B7280] transition-colors" 
+                    title="結束體驗 / 登入"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                </div>
              ) : (
                 <button onClick={handleLogin} className="flex items-center gap-2 px-4 py-2 border border-[#C5A059] rounded text-[#C5A059] hover:bg-[#C5A059] hover:text-black transition-colors text-sm font-medium">
                   <LogIn size={16} /> Google 登入
@@ -391,22 +499,33 @@ function App() {
           </div>
         )}
 
-        {!user ? (
+        {!user && !isGuest ? (
            <div className="h-[50vh] flex flex-col items-center justify-center text-center">
               <div className="w-16 h-16 bg-[#1C1C1F] text-[#C5A059] rounded-full border border-[#333333] flex items-center justify-center mx-auto mb-6">
                 <Wallet size={24} />
               </div>
               <h2 className="text-2xl font-serif text-[#E5E7EB] mb-2">雲端同步投資組合</h2>
               <p className="text-[#6B7280] max-w-md mb-8">
-                登入您的 Google 帳戶以啟動您的雲端模擬投資組合。您的持倉、績效和操作紀錄將自動同步並永久儲存。
+                登入您的 Google 帳戶以啟動您的雲端模擬投資組合。您的持倉、績效 and 操作紀錄將自動同步並永久儲存。
               </p>
-              <button 
-                onClick={handleLogin}
-                className="gold-text border border-[#C5A059] hover:bg-[#C5A059] hover:text-[#0A0A0C] transition-colors rounded px-8 py-3 text-sm font-bold uppercase tracking-widest flex items-center gap-2"
-              >
-                 <LogIn size={18} />
-                 立即登入 / 註冊
-              </button>
+              <div className="flex flex-col items-center gap-3">
+                <button 
+                  onClick={handleLogin}
+                  className="gold-text border border-[#C5A059] hover:bg-[#C5A059] hover:text-[#0A0A0C] transition-colors rounded px-8 py-3 text-sm font-bold uppercase tracking-widest flex items-center gap-2"
+                >
+                   <LogIn size={18} />
+                   立即登入 / 註冊
+                </button>
+                <button 
+                  onClick={() => {
+                    setIsGuest(true);
+                    localStorage.setItem('is_guest_mode', 'true');
+                  }}
+                  className="mt-2 text-sm text-[#6B7280] hover:text-[#C5A059] transition-all duration-200 underline focus:outline-none py-1.5"
+                >
+                   直接以「訪客身份」體驗（免登入，資料存在瀏覽器）
+                </button>
+              </div>
            </div>
         ) : (
           <>
@@ -772,6 +891,13 @@ function App() {
                       if (other) {
                         setActivePortfolioId(other.id);
                       }
+                    }
+
+                    if (isGuest) {
+                      const updatedList = portfolios.filter(p => p.id !== id);
+                      setPortfolios(updatedList);
+                      localStorage.setItem('portfolios_guest', JSON.stringify(updatedList));
+                      return;
                     }
 
                     try {
