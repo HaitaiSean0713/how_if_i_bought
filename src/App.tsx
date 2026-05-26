@@ -7,7 +7,7 @@ import { PositionCard, formatCurrency, formatPercent } from './components/Positi
 import { SellPositionModal } from './components/SellPositionModal';
 import { ClosedPositionCard } from './components/ClosedPositionCard';
 import { PortfolioModal } from './components/PortfolioModal';
-import { auth, db, loginWithGoogle, checkRedirectResult, logout } from './lib/firebase';
+import { auth, db, loginWithGoogle, logout } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firebaseErrors';
@@ -26,27 +26,21 @@ function App() {
   const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check for redirect result on initialization
-    checkRedirectResult().catch(err => {
-       console.error("Redirect check error:", err);
-       setLoginError(`登入失敗：${err.message || '未知錯誤'} (${err.code || 'unknown'})`);
-    });
-  }, []);
-
   const handleLogin = async () => {
     setLoginError(null);
     try {
       await loginWithGoogle();
     } catch (err: any) {
       console.error(err);
-      let msg = "登入開始失敗。";
+      let msg = "登入失敗。";
       if (err.code === "auth/operation-not-allowed") {
         msg = "登入失敗：Firebase 專案尚未啟用 Google 登入方式！請登入 Firebase Console -> Authentication -> 登入方式 (Sign-in method) -> 點擊「新增提供者」並啟用「Google」。";
       } else if (err.code === "auth/unauthorized-domain") {
-        msg = `登入失敗：目前部署網域（${window.location.hostname}）尚未加入 Firebase 授權網域！請至 Firebase Console -> Authentication -> 設定 -> 授權網域 (Authorized Domains) -> 將「${window.location.hostname}」新增進去。另外，有些內建瀏覽器（如 Line, IG）或手機封鎖了彈出視窗，系統已改用重新導向登入。`;
+        msg = `登入失敗：目前部署網域（${window.location.hostname}）尚未加入 Firebase 授權網域！請至 Firebase Console -> Authentication -> 設定 -> 授權網域 (Authorized Domains) -> 將「${window.location.hostname}」新增進去。重要提示：若您在 Vercel 上部署，請確保您有設定 VITE_FIREBASE_API_KEY 等環境變數。`;
+      } else if (err.code === "auth/popup-closed-by-user") {
+        msg = "登入失敗：登入視窗被手動關閉或被瀏覽器封鎖。請重試，並允許彈出式視窗。";
       } else {
-        msg = `登入開始失敗：${err.message || '未知錯誤'} (${err.code || 'unknown'})`;
+        msg = `登入失敗：${err.message || '未知錯誤'} (${err.code || 'unknown'})`;
       }
       setLoginError(msg);
     }
