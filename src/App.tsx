@@ -130,18 +130,53 @@ function App() {
       });
       // Optionally fallback if empty
       if (loadedPortfolios.length === 0) {
-        const defaultPort: Portfolio = {
-          id: crypto.randomUUID(),
-          name: '預設組合',
-          positions: [],
-          closedPositions: [],
-          userId: user.uid,
-          createdAt: Date.now(),
-          sortOrder: 0
-        };
-        setPortfolios([defaultPort]);
-        setActivePortfolioId(defaultPort.id);
-        handleCreatePortfolioInDB(defaultPort);
+        let migrated = false;
+        try {
+          const cached = localStorage.getItem('portfolios_guest');
+          if (cached) {
+            const parsed = JSON.parse(cached) as Portfolio[];
+            if (parsed && parsed.length > 0) {
+              const migratedPorts = parsed.map(port => ({
+                ...port,
+                userId: user.uid,
+                updatedAt: Date.now()
+              }));
+              
+              // Save them to Firestore
+              Promise.all(migratedPorts.map(p => handleCreatePortfolioInDB(p)))
+                .catch(err => console.error("Error writing migrated portfolios to Firestore:", err));
+              
+              setPortfolios(migratedPorts);
+              const savedActiveId = localStorage.getItem('active_portfolio_id_guest');
+              if (savedActiveId && migratedPorts.some(p => p.id === savedActiveId)) {
+                setActivePortfolioId(savedActiveId);
+              } else {
+                setActivePortfolioId(migratedPorts[0].id);
+              }
+              
+              localStorage.removeItem('portfolios_guest');
+              localStorage.removeItem('active_portfolio_id_guest');
+              migrated = true;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to migrate guest portfolios:", e);
+        }
+
+        if (!migrated) {
+          const defaultPort: Portfolio = {
+            id: crypto.randomUUID(),
+            name: '預設組合',
+            positions: [],
+            closedPositions: [],
+            userId: user.uid,
+            createdAt: Date.now(),
+            sortOrder: 0
+          };
+          setPortfolios([defaultPort]);
+          setActivePortfolioId(defaultPort.id);
+          handleCreatePortfolioInDB(defaultPort);
+        }
       } else {
         // Sort portfolios: prioritize sortOrder, fallback to createdAt or 0
         loadedPortfolios.sort((a, b) => {
