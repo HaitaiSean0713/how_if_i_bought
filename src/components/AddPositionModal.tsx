@@ -67,7 +67,14 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="card-bg rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex justify-between items-center p-6 border-b border-[#222226]">
           <h2 className="text-xl serif gold-text">新增持倉</h2>
@@ -86,15 +93,12 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
           <div className="space-y-1.5">
             <label className="block label-text">股票代號</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280]">
-                <Search size={18} />
-              </span>
               <input
                 type="text"
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value.replace(/[^a-zA-Z0-9\.]/g, ''))}
                 placeholder="例如: 2330"
-                className="input-field pl-10 transition-colors focus:border-[#C5A059] outline-none uppercase placeholder:normal-case placeholder:text-[#6B7280]/50"
+                className="input-field transition-colors focus:border-[#C5A059] outline-none uppercase placeholder:normal-case placeholder:text-[#6B7280]/50"
                 required
               />
             </div>
