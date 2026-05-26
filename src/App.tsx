@@ -24,6 +24,27 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sellModalData, setSellModalData] = useState<{ position: Position, currentPrice?: number } | null>(null);
   const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  const handleLogin = async () => {
+    setLoginError(null);
+    try {
+      await loginWithGoogle();
+    } catch (err: any) {
+      console.error(err);
+      let msg = "登入失敗。";
+      if (err.code === "auth/operation-not-allowed") {
+        msg = "登入失敗：Firebase 專案尚未啟用 Google 登入方式！請登入 Firebase Console -> Authentication -> 登入方式 (Sign-in method) -> 點擊「新增提供者」並啟用「Google」。";
+      } else if (err.code === "auth/unauthorized-domain") {
+        msg = "登入失敗：目前部署網域尚未加入 Firebase 授權網域！請至 Firebase Console -> Authentication -> 設定 -> 授權網域 (Authorized Domains) -> 將您的 Vercel 網域 (如 ifiboughtit.vercel.app) 新增進去。";
+      } else if (err.code === "auth/popup-closed-by-user") {
+        msg = "登入失敗：登入視窗被手動關閉或被瀏覽器封鎖。請重試，並允許彈出式視窗。";
+      } else {
+        msg = `登入失敗：${err.message || '未知錯誤'} (${err.code || 'unknown'})`;
+      }
+      setLoginError(msg);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -264,12 +285,27 @@ function App() {
                   </button>
                 </div>
              ) : (
-                <button onClick={loginWithGoogle} className="flex items-center gap-2 px-4 py-2 border border-[#C5A059] rounded text-[#C5A059] hover:bg-[#C5A059] hover:text-black transition-colors text-sm font-medium">
+                <button onClick={handleLogin} className="flex items-center gap-2 px-4 py-2 border border-[#C5A059] rounded text-[#C5A059] hover:bg-[#C5A059] hover:text-black transition-colors text-sm font-medium">
                   <LogIn size={16} /> Google 登入
                 </button>
              )}
           </div>
         </header>
+
+        {loginError && (
+          <div className="mb-6 p-4 rounded bg-[#2D1616] border border-[#7A2B2B] text-[#FF9E9E] flex flex-col md:flex-row gap-2 justify-between items-start md:items-center text-sm">
+            <div className="flex-1">
+              <p className="font-semibold">{loginError}</p>
+              <p className="text-xs opacity-85 mt-2">
+                1. <strong>啟用 Google 登入</strong>：在 Firebase Console 中進入 Authentication，點選「登入方式」(Sign-in method) 頁籤，新增「Google」並啟用。<br/>
+                2. <strong>新增授權網域</strong>：若在 Vercel 測試，請至 Authentication 的「設定」(Settings) 頁面中的「授權網域」清單，將 <code>ifiboughtit.vercel.app</code> 新增進去。
+              </p>
+            </div>
+            <button onClick={() => setLoginError(null)} className="text-xs underline hover:text-white mt-2 md:mt-0 px-2 py-1 bg-red-950/40 rounded border border-[#7A2B2B]/40">
+              關閉提示
+            </button>
+          </div>
+        )}
 
         {!user ? (
            <div className="h-[50vh] flex flex-col items-center justify-center text-center">
@@ -281,7 +317,7 @@ function App() {
                 登入您的 Google 帳戶以啟動您的雲端模擬投資組合。您的持倉、績效和操作紀錄將自動同步並永久儲存。
               </p>
               <button 
-                onClick={loginWithGoogle}
+                onClick={handleLogin}
                 className="gold-text border border-[#C5A059] hover:bg-[#C5A059] hover:text-[#0A0A0C] transition-colors rounded px-8 py-3 text-sm font-bold uppercase tracking-widest flex items-center gap-2"
               >
                  <LogIn size={18} />

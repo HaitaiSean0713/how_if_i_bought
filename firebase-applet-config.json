@@ -1,9 +1,10 @@
 {
-  apiKey: "AIzaSyCPAUtfZ32jnk3h_Wc25lmex30MNF4uwlg",
-  authDomain: "how-if-i-bought.firebaseapp.com",
-  projectId: "how-if-i-bought",
-  storageBucket: "how-if-i-bought.firebasestorage.app",
-  messagingSenderId: "1051605621721",
-  appId: "1:1051605621721:web:0b8464ae441c496caf97c8",
-  measurementId: "G-S239C9HVSG"
+  "projectId": "refreshing-strategy-p5xj8",
+  "appId": "1:642579389398:web:b51c8aa6c30d215a4aa277",
+  "apiKey": "AIzaSyAA3cCXUyUxMwkGpb6AbFg3grXVSLC4FzE",
+  "authDomain": "refreshing-strategy-p5xj8.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-2046d2aa-0e36-4555-84e5-48e3929644f8",
+  "storageBucket": "refreshing-strategy-p5xj8.firebasestorage.app",
+  "messagingSenderId": "642579389398",
+  "measurementId": ""
 }
