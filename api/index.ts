@@ -10,15 +10,26 @@ app.get("/api/stock/:symbol", async (req, res) => {
   try {
     let symbol = req.params.symbol.toUpperCase();
     let result;
+    const queryOptions = { lang: 'zh-Hant', region: 'TW' };
     if (symbol.includes('.')) {
-      result = await yahooFinance.quote(symbol);
+      result = await yahooFinance.quote(symbol, queryOptions);
     } else {
       try {
-        result = await yahooFinance.quote(symbol + '.TW');
+        result = await yahooFinance.quote(symbol + '.TW', queryOptions);
       } catch (err) {
-        result = await yahooFinance.quote(symbol + '.TWO');
+        result = await yahooFinance.quote(symbol + '.TWO', queryOptions);
       }
     }
+    
+    if (result) {
+      const chineseRegex = /[\u4e00-\u9fa5]/;
+      if (result.longName && chineseRegex.test(result.longName)) {
+        result.shortName = result.longName;
+      } else if (result.displayName && chineseRegex.test(result.displayName)) {
+        result.shortName = result.displayName;
+      }
+    }
+    
     res.json(result);
   } catch (error: any) {
     console.error(error);
@@ -60,7 +71,25 @@ app.get("/api/historical/:symbol/:date", async (req, res) => {
     }
     
     const closest = result.reverse().find((d: any) => new Date(d.date).getTime() <= new Date(dateStr).getTime());
-    res.json({ ...(closest || result[0]), actualSymbol: finalSymbol });
+    const finalData = { ...(closest || result[0]), actualSymbol: finalSymbol, shortName: symbol };
+    
+    try {
+      const quoteRes = await yahooFinance.quote(finalSymbol, { lang: 'zh-Hant', region: 'TW' });
+      if (quoteRes) {
+        const chineseRegex = /[\u4e00-\u9fa5]/;
+        if (quoteRes.longName && chineseRegex.test(quoteRes.longName)) {
+          finalData.shortName = quoteRes.longName;
+        } else if (quoteRes.displayName && chineseRegex.test(quoteRes.displayName)) {
+          finalData.shortName = quoteRes.displayName;
+        } else if (quoteRes.shortName) {
+          finalData.shortName = quoteRes.shortName;
+        }
+      }
+    } catch (e) {
+      // Ignored
+    }
+    
+    res.json(finalData);
   } catch (error: any) {
     console.error(error);
     res.status(500).json({ error: error.message || '歷史資料查詢失敗' });
@@ -74,15 +103,30 @@ app.post("/api/quotes", async (req, res) => {
        return res.json([]);
     }
     
+    const queryOptions = { lang: 'zh-Hant', region: 'TW' };
     const results = await Promise.allSettled(
       symbols.map(async (s) => {
         let sym = s.toUpperCase();
-        if (sym.includes('.')) return await yahooFinance.quote(sym);
-        try {
-          return await yahooFinance.quote(sym + '.TW');
-        } catch (e) {
-          return await yahooFinance.quote(sym + '.TWO');
+        let qRes;
+        if (sym.includes('.')) {
+          qRes = await yahooFinance.quote(sym, queryOptions);
+        } else {
+          try {
+            qRes = await yahooFinance.quote(sym + '.TW', queryOptions);
+          } catch (e) {
+            qRes = await yahooFinance.quote(sym + '.TWO', queryOptions);
+          }
         }
+        
+        if (qRes) {
+          const chineseRegex = /[\u4e00-\u9fa5]/;
+          if (qRes.longName && chineseRegex.test(qRes.longName)) {
+            qRes.shortName = qRes.longName;
+          } else if (qRes.displayName && chineseRegex.test(qRes.displayName)) {
+            qRes.shortName = qRes.displayName;
+          }
+        }
+        return qRes;
       })
     );
     

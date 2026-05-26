@@ -29,8 +29,13 @@ async function startServer() {
         }
       }
       
-      if (result && result.longName && /[\u4e00-\u9fa5]/.test(result.longName)) {
-        result.shortName = result.longName;
+      if (result) {
+        const chineseRegex = /[\u4e00-\u9fa5]/;
+        if (result.longName && chineseRegex.test(result.longName)) {
+          result.shortName = result.longName;
+        } else if (result.displayName && chineseRegex.test(result.displayName)) {
+          result.shortName = result.displayName;
+        }
       }
       
       res.json(result);
@@ -80,10 +85,15 @@ async function startServer() {
       
       try {
         const quoteRes = await yahooFinance.quote(finalSymbol, { lang: 'zh-Hant', region: 'TW' });
-        if (quoteRes && quoteRes.longName && /[\u4e00-\u9fa5]/.test(quoteRes.longName)) {
-           finalData.shortName = quoteRes.longName;
-        } else if (quoteRes && quoteRes.shortName) {
-           finalData.shortName = quoteRes.shortName;
+        if (quoteRes) {
+          const chineseRegex = /[\u4e00-\u9fa5]/;
+          if (quoteRes.longName && chineseRegex.test(quoteRes.longName)) {
+            finalData.shortName = quoteRes.longName;
+          } else if (quoteRes.displayName && chineseRegex.test(quoteRes.displayName)) {
+            finalData.shortName = quoteRes.displayName;
+          } else if (quoteRes.shortName) {
+            finalData.shortName = quoteRes.shortName;
+          }
         }
       } catch (e) {
         // Ignored
@@ -117,8 +127,13 @@ async function startServer() {
               res = await yahooFinance.quote(sym + '.TWO', queryOptions);
             }
           }
-          if (res && res.longName && /[\u4e00-\u9fa5]/.test(res.longName)) {
-            res.shortName = res.longName;
+          if (res) {
+            const chineseRegex = /[\u4e00-\u9fa5]/;
+            if (res.longName && chineseRegex.test(res.longName)) {
+              res.shortName = res.longName;
+            } else if (res.displayName && chineseRegex.test(res.displayName)) {
+              res.shortName = res.displayName;
+            }
           }
           return res;
         })

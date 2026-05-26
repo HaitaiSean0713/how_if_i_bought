@@ -139,6 +139,8 @@ function App() {
           createdAt: Date.now(),
           sortOrder: 0
         };
+        setPortfolios([defaultPort]);
+        setActivePortfolioId(defaultPort.id);
         handleCreatePortfolioInDB(defaultPort);
       } else {
         // Sort portfolios: prioritize sortOrder, fallback to createdAt or 0
@@ -221,10 +223,29 @@ function App() {
     }
   };
 
-  const updateActivePortfolio = (updater: (p: Portfolio) => Portfolio) => {
-    const current = portfolios.find(p => p.id === activePortfolioId);
+  const updateActivePortfolio = async (updater: (p: Portfolio) => Portfolio) => {
+    const current = portfolios.find(p => p.id === activePortfolioId) || portfolios[0];
     if (current) {
-        syncActivePortfolio(updater(current));
+        const updated = updater(current);
+        
+        // Optimistic UI update
+        const idx = portfolios.findIndex(p => p.id === updated.id);
+        const originalPortfolios = [...portfolios];
+        if (idx !== -1) {
+          const copy = [...portfolios];
+          copy[idx] = { ...updated, updatedAt: Date.now() };
+          setPortfolios(copy);
+        }
+        
+        try {
+          await syncActivePortfolio(updated);
+        } catch (err) {
+          // Rollback on failure
+          setPortfolios(originalPortfolios);
+          throw err;
+        }
+    } else {
+        throw new Error("找不到作用中的投資組合");
     }
   };
 
@@ -238,7 +259,7 @@ function App() {
       id: crypto.randomUUID(),
       totalCost: newPos.buyPrice * newPos.shares,
     };
-    updateActivePortfolio(p => ({ ...p, positions: [...p.positions, position] }));
+    await updateActivePortfolio(p => ({ ...p, positions: [...p.positions, position] }));
   };
 
   const handleRemovePosition = (id: string) => {
