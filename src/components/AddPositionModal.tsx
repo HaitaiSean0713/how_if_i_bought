@@ -33,10 +33,16 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
       }
 
       // Fetch historical data to get buy price
-      const response = await fetch(`/api/historical/${symbol}/${buyDate}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      
+      const response = await fetch(`/api/historical/${symbol}/${buyDate}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || '無法獲取該日期的歷史股價');
       }
 

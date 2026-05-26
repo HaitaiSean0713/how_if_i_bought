@@ -295,6 +295,7 @@ function App() {
       totalCost: newPos.buyPrice * newPos.shares,
     };
     await updateActivePortfolio(p => ({ ...p, positions: [...p.positions, position] }));
+    setActiveTab('active');
   };
 
   const handleRemovePosition = (id: string) => {
@@ -321,12 +322,17 @@ function App() {
       realizedReturnPercent,
     };
 
-    updateActivePortfolio(p => ({
-      ...p,
-      closedPositions: [closedPos, ...p.closedPositions],
-      positions: p.positions.filter(pos => pos.id !== position.id)
-    }));
-    setSellModalData(null);
+    try {
+      await updateActivePortfolio(p => ({
+        ...p,
+        closedPositions: [closedPos, ...p.closedPositions],
+        positions: p.positions.filter(pos => pos.id !== position.id)
+      }));
+      setSellModalData(null);
+    } catch (err) {
+      console.error('Failed to sell position:', err);
+      alert('平倉失敗，請重試！');
+    }
   };
 
   const handleCreatePortfolio = async (name: string) => {

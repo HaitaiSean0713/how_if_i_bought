@@ -37,6 +37,9 @@ app.get("/api/stock/:symbol", async (req, res) => {
   }
 });
 
+const withTimeout = <T>(prom: Promise<T>, time: number) => 
+  Promise.race([prom, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), time))]);
+
 app.get("/api/historical/:symbol/:date", async (req, res) => {
   try {
     let symbol = req.params.symbol.toUpperCase();
@@ -51,15 +54,15 @@ app.get("/api/historical/:symbol/:date", async (req, res) => {
     let finalSymbol = symbol;
     
     if (symbol.includes('.')) {
-      result = await yahooFinance.historical(symbol, queryOptions);
+      result = await withTimeout(yahooFinance.historical(symbol, queryOptions), 8000);
     } else {
       try {
         finalSymbol = symbol + '.TW';
-        result = await yahooFinance.historical(finalSymbol, queryOptions);
+        result = await withTimeout(yahooFinance.historical(finalSymbol, queryOptions), 8000);
       } catch (err: any) {
         try {
           finalSymbol = symbol + '.TWO';
-          result = await yahooFinance.historical(finalSymbol, queryOptions);
+          result = await withTimeout(yahooFinance.historical(finalSymbol, queryOptions), 8000);
         } catch (err2: any) {
           throw new Error('找不到這檔股票的資料，請確認代號是否正確。');
         }
@@ -74,7 +77,7 @@ app.get("/api/historical/:symbol/:date", async (req, res) => {
     const finalData = { ...(closest || result[0]), actualSymbol: finalSymbol, shortName: symbol };
     
     try {
-      const quoteRes = await yahooFinance.quote(finalSymbol, { lang: 'zh-Hant', region: 'TW' });
+      const quoteRes = await withTimeout(yahooFinance.quote(finalSymbol, { lang: 'zh-Hant', region: 'TW' }), 5000);
       if (quoteRes) {
         const chineseRegex = /[\u4e00-\u9fa5]/;
         if (quoteRes.longName && chineseRegex.test(quoteRes.longName)) {
