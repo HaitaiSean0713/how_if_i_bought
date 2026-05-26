@@ -18,15 +18,21 @@ async function startServer() {
     try {
       let symbol = req.params.symbol.toUpperCase();
       let result;
+      const queryOptions = { lang: 'zh-Hant', region: 'TW' };
       if (symbol.includes('.')) {
-        result = await yahooFinance.quote(symbol);
+        result = await yahooFinance.quote(symbol, queryOptions);
       } else {
         try {
-          result = await yahooFinance.quote(symbol + '.TW');
+          result = await yahooFinance.quote(symbol + '.TW', queryOptions);
         } catch (err) {
-          result = await yahooFinance.quote(symbol + '.TWO');
+          result = await yahooFinance.quote(symbol + '.TWO', queryOptions);
         }
       }
+      
+      if (result && result.longName && /[\u4e00-\u9fa5]/.test(result.longName)) {
+        result.shortName = result.longName;
+      }
+      
       res.json(result);
     } catch (error: any) {
       console.error(error);
@@ -70,8 +76,20 @@ async function startServer() {
       
       // Get the closest date <= requested date
       const closest = result.reverse().find((d: any) => new Date(d.date).getTime() <= new Date(dateStr).getTime());
+      const finalData = { ...(closest || result[0]), actualSymbol: finalSymbol };
       
-      res.json({ ...(closest || result[0]), actualSymbol: finalSymbol });
+      try {
+        const quoteRes = await yahooFinance.quote(finalSymbol, { lang: 'zh-Hant', region: 'TW' });
+        if (quoteRes && quoteRes.longName && /[\u4e00-\u9fa5]/.test(quoteRes.longName)) {
+           finalData.shortName = quoteRes.longName;
+        } else if (quoteRes && quoteRes.shortName) {
+           finalData.shortName = quoteRes.shortName;
+        }
+      } catch (e) {
+        // Ignored
+      }
+      
+      res.json(finalData);
     } catch (error: any) {
       console.error(error);
       res.status(500).json({ error: error.message || '歷史資料查詢失敗' });
@@ -86,15 +104,23 @@ async function startServer() {
          return res.json([]);
       }
       
+      const queryOptions = { lang: 'zh-Hant', region: 'TW' };
       const results = await Promise.allSettled(
         symbols.map(async (s) => {
           let sym = s.toUpperCase();
-          if (sym.includes('.')) return await yahooFinance.quote(sym);
-          try {
-            return await yahooFinance.quote(sym + '.TW');
-          } catch (e) {
-            return await yahooFinance.quote(sym + '.TWO');
+          let res;
+          if (sym.includes('.')) res = await yahooFinance.quote(sym, queryOptions);
+          else {
+            try {
+              res = await yahooFinance.quote(sym + '.TW', queryOptions);
+            } catch (e) {
+              res = await yahooFinance.quote(sym + '.TWO', queryOptions);
+            }
           }
+          if (res && res.longName && /[\u4e00-\u9fa5]/.test(res.longName)) {
+            res.shortName = res.longName;
+          }
+          return res;
         })
       );
       

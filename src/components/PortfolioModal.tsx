@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface PortfolioModalProps {
@@ -10,6 +10,12 @@ interface PortfolioModalProps {
 
 export function PortfolioModal({ isOpen, onClose, onConfirm, initialName = '' }: PortfolioModalProps) {
   const [name, setName] = useState(initialName);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(initialName);
+    }
+  }, [isOpen, initialName]);
 
   if (!isOpen) return null;
 

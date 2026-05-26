@@ -48,6 +48,7 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
 
       await onAdd({
         symbol: historicalData.actualSymbol || symbol.toUpperCase(),
+        shortName: historicalData.shortName,
         shares: parsedShares,
         buyDate,
         buyPrice: historicalData.close,

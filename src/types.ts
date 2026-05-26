@@ -6,6 +6,7 @@ export interface Portfolio {
   updatedAt?: number;
   positions: Position[];
   closedPositions: ClosedPosition[];
+  sortOrder?: number;
 }
 
 export interface Position {

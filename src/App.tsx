@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical } from 'lucide-react';
 import { Position, QuoteData, PortfolioSummary, ClosedPosition, Portfolio } from './types';
 import { cn } from './lib/utils';
 import { AddPositionModal } from './components/AddPositionModal';
@@ -25,6 +25,13 @@ function App() {
   const [sellModalData, setSellModalData] = useState<{ position: Position, currentPrice?: number } | null>(null);
   const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [selectedRenamePortfolio, setSelectedRenamePortfolio] = useState<Portfolio | null>(null);
+  const [portfolioToDelete, setPortfolioToDelete] = useState<{ id: string, name: string } | null>(null);
+
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setLoginError(null);
@@ -74,10 +81,17 @@ function App() {
           positions: [],
           closedPositions: [],
           userId: user.uid,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          sortOrder: 0
         };
         handleCreatePortfolioInDB(defaultPort);
       } else {
+        // Sort portfolios: prioritize sortOrder, fallback to createdAt or 0
+        loadedPortfolios.sort((a, b) => {
+          const orderA = a.sortOrder !== undefined ? a.sortOrder : (a.createdAt || 0);
+          const orderB = b.sortOrder !== undefined ? b.sortOrder : (b.createdAt || 0);
+          return orderA - orderB;
+        });
         setPortfolios(loadedPortfolios);
         setActivePortfolioId(prev => loadedPortfolios.some(p => p.id === prev) ? prev : loadedPortfolios[0].id);
       }
@@ -179,6 +193,7 @@ function App() {
 
     const closedPos: ClosedPosition = {
       ...position,
+      shortName: position.shortName || quotes[position.symbol]?.shortName,
       sellDate,
       sellPrice,
       realizedReturn,
@@ -195,17 +210,86 @@ function App() {
 
   const handleCreatePortfolio = async (name: string) => {
     if (!user) return;
+    const maxOrder = portfolios.reduce((max, p) => Math.max(max, p.sortOrder || 0), 0);
     const newPort: Portfolio = { 
       id: crypto.randomUUID(), 
       name, 
       positions: [], 
       closedPositions: [],
       userId: user.uid,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      sortOrder: maxOrder + 1
     };
     await handleCreatePortfolioInDB(newPort);
     setActivePortfolioId(newPort.id);
     setActiveTab('active');
+  };
+
+  const handleRenamePortfolio = async (newName: string) => {
+    if (!user || !selectedRenamePortfolio) return;
+    try {
+      const docRef = doc(db, 'portfolios', selectedRenamePortfolio.id);
+      await setDoc(docRef, { name: newName, updatedAt: Date.now() }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'portfolios/' + selectedRenamePortfolio.id);
+    }
+    setSelectedRenamePortfolio(null);
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (draggedId !== null && draggedId !== targetId) {
+      setDragOverId(targetId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+    if (draggedId === null || draggedId === targetId) return;
+
+    const oldIndex = portfolios.findIndex(p => p.id === draggedId);
+    const newIndex = portfolios.findIndex(p => p.id === targetId);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const updatedPortfolios = [...portfolios];
+    const [removed] = updatedPortfolios.splice(oldIndex, 1);
+    updatedPortfolios.splice(newIndex, 0, removed);
+
+    // Instant local feedback
+    setPortfolios(updatedPortfolios);
+
+    // Save batch on Firestore
+    const batch = writeBatch(db);
+    updatedPortfolios.forEach((p, idx) => {
+      const docRef = doc(db, 'portfolios', p.id);
+      batch.update(docRef, { sortOrder: idx, updatedAt: Date.now() });
+    });
+
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.error("Failed to update sortOrder batch write:", err);
+      handleFirestoreError(err, OperationType.UPDATE, 'portfolios_reorder');
+    }
+
+    setDraggedId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverId(null);
   };
 
   const handleDeletePortfolio = async (id: string) => {
@@ -329,17 +413,48 @@ function App() {
             {/* Portfolios Navigation */}
         <div className="flex gap-3 mb-8 overflow-x-auto pb-2 border-b border-[#222226] scrollbar-hide items-center">
           {portfolios.map(p => (
-            <button 
+            <div 
               key={p.id}
-              onClick={() => { setActivePortfolioId(p.id); if(activeTab === 'compare') setActiveTab('active'); }}
-              className={cn("px-4 py-2 rounded-t-lg border-b-2 text-sm flex-shrink-0 transition-colors bg-[#0A0A0C] hover:bg-[#141417]", 
+              className={cn("flex items-center gap-1.5 px-3 py-2 rounded-t-lg border-b-2 text-sm flex-shrink-0 transition-all bg-[#0A0A0C] hover:bg-[#141417] group", 
                 activePortfolioId === p.id && activeTab !== 'compare' 
                   ? "border-[#C5A059] text-[#C5A059]" 
                   : "border-transparent text-[#6B7280]"
               )}
             >
-              {p.name}
-            </button>
+              <button 
+                onClick={() => { setActivePortfolioId(p.id); if(activeTab === 'compare') setActiveTab('active'); }}
+                className="transition-colors font-medium focus:outline-none"
+              >
+                {p.name}
+              </button>
+              {activePortfolioId === p.id && activeTab !== 'compare' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedRenamePortfolio(p);
+                      setIsRenameModalOpen(true);
+                    }}
+                    className="text-[#6B7280] hover:text-[#C5A059] transition-colors p-0.5 rounded hover:bg-[#1C1C1F]"
+                    title="修改組合名稱"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                  {portfolios.length > 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPortfolioToDelete({ id: p.id, name: p.name });
+                      }}
+                      className="text-[#6B7280] hover:text-red-500 transition-colors p-0.5 rounded hover:bg-[#1C1C1F]"
+                      title="刪除組合"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
           <button 
             onClick={() => setIsPortfolioModalOpen(true)} 
@@ -368,18 +483,26 @@ function App() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
               {portfolioSummaries.map(p => (
-                 <div key={p.id} className="card-bg rounded-lg p-6 relative group border border-[#222226]">
-                    <div className="flex justify-between items-start mb-6">
-                      <h3 className="text-xl serif gold-text font-medium">{p.name}</h3>
-                      {portfolios.length > 1 && (
-                        <button 
-                          onClick={() => handleDeletePortfolio(p.id)} 
-                          className="text-[#6B7280] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                          title="刪除組合"
-                        >
-                          <Trash2 size={16}/>
-                        </button>
-                      )}
+                 <div 
+                   key={p.id} 
+                   draggable={true}
+                   onDragStart={(e) => handleDragStart(e, p.id)}
+                   onDragOver={(e) => handleDragOver(e, p.id)}
+                   onDragLeave={handleDragLeave}
+                   onDrop={(e) => handleDrop(e, p.id)}
+                   onDragEnd={handleDragEnd}
+                   className={cn(
+                     "card-bg rounded-lg p-6 relative border transition-all cursor-grab active:cursor-grabbing",
+                     draggedId === p.id 
+                       ? "opacity-30 border-dashed border-[#C5A059]" 
+                       : (dragOverId === p.id 
+                           ? "border-[#C5A059] bg-[#141417] scale-[1.01]" 
+                           : "border-[#222226]")
+                   )}
+                 >
+                    <div className="flex items-center gap-2 mb-6 border-b border-[#222226]/40 pb-3">
+                      <GripVertical size={16} className="text-[#6B7280] flex-shrink-0" />
+                      <h3 className="text-xl serif gold-text font-medium flex-1 truncate">{p.name}</h3>
                     </div>
                     <div className="space-y-4">
                       <div className="flex justify-between items-center pb-2 border-b border-[#222226]/50">
@@ -594,7 +717,6 @@ function App() {
       </div>
 
       <AddPositionModal 
-
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAddPosition}
@@ -613,6 +735,60 @@ function App() {
         onClose={() => setIsPortfolioModalOpen(false)}
         onConfirm={handleCreatePortfolio}
       />
+
+      <PortfolioModal 
+        isOpen={isRenameModalOpen}
+        onClose={() => {
+          setIsRenameModalOpen(false);
+          setSelectedRenamePortfolio(null);
+        }}
+        initialName={selectedRenamePortfolio?.name || ''}
+        onConfirm={handleRenamePortfolio}
+      />
+
+      {portfolioToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+          <div className="card-bg rounded-lg shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200 border border-red-950/30">
+            <div className="p-6 space-y-4 text-left">
+              <h3 className="text-xl serif text-[#E5E7EB] font-semibold">確認刪除投資組合？</h3>
+              <p className="text-sm text-[#8E9096] leading-relaxed">
+                確定要刪除「<span className="text-[#C5A059] font-medium">{portfolioToDelete.name}</span>」嗎？此動作將會永久清除本組合之所有持倉與歷史平倉交易紀錄，且無法復原。
+              </p>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setPortfolioToDelete(null)}
+                  className="w-1/2 px-4 py-2.5 rounded bg-neutral-900 border border-neutral-800 text-[#6B7280] hover:text-[#E5E7EB] transition-colors text-sm font-medium"
+                >
+                  取消
+                </button>
+                <button 
+                  onClick={async () => {
+                    const id = portfolioToDelete.id;
+                    setPortfolioToDelete(null);
+                    if (portfolios.length <= 1) return;
+                    
+                    if (activePortfolioId === id) {
+                      const other = portfolios.find(p => p.id !== id);
+                      if (other) {
+                        setActivePortfolioId(other.id);
+                      }
+                    }
+
+                    try {
+                      await deleteDoc(doc(db, 'portfolios', id));
+                    } catch (err) {
+                      handleFirestoreError(err, OperationType.DELETE, 'portfolios/' + id);
+                    }
+                  }}
+                  className="w-1/2 px-4 py-2.5 rounded bg-red-950/40 text-red-200 border border-red-900/60 hover:bg-red-920 transition-colors text-sm font-medium"
+                >
+                  確認刪除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
