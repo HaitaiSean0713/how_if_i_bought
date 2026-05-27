@@ -25,7 +25,11 @@ async function startServer() {
         try {
           result = await yahooFinance.quote(symbol + '.TW', queryOptions);
         } catch (err) {
-          result = await yahooFinance.quote(symbol + '.TWO', queryOptions);
+          try {
+            result = await yahooFinance.quote(symbol + '.TWO', queryOptions);
+          } catch (err2) {
+            result = await yahooFinance.quote(symbol, queryOptions);
+          }
         }
       }
       
@@ -73,7 +77,12 @@ const withTimeout = <T>(prom: Promise<T>, time: number) =>
             finalSymbol = symbol + '.TWO';
             result = await withTimeout(yahooFinance.historical(finalSymbol, queryOptions), 8000);
           } catch (err2: any) {
-            throw new Error('找不到這檔股票的資料，請確認代號是否正確。');
+            try {
+              finalSymbol = symbol;
+              result = await withTimeout(yahooFinance.historical(finalSymbol, queryOptions), 8000);
+            } catch (err3: any) {
+              throw new Error('找不到這檔股票的資料，請確認代號是否正確。');
+            }
           }
         }
       }
@@ -127,7 +136,15 @@ const withTimeout = <T>(prom: Promise<T>, time: number) =>
             try {
               res = await yahooFinance.quote(sym + '.TW', queryOptions);
             } catch (e) {
-              res = await yahooFinance.quote(sym + '.TWO', queryOptions);
+              try {
+                res = await yahooFinance.quote(sym + '.TWO', queryOptions);
+              } catch (e2) {
+                try {
+                  res = await yahooFinance.quote(sym, queryOptions);
+                } catch (e3) {
+                  // Ignore
+                }
+              }
             }
           }
           if (res) {

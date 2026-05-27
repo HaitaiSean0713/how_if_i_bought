@@ -17,7 +17,11 @@ app.get("/api/stock/:symbol", async (req, res) => {
       try {
         result = await yahooFinance.quote(symbol + '.TW', queryOptions);
       } catch (err) {
-        result = await yahooFinance.quote(symbol + '.TWO', queryOptions);
+        try {
+          result = await yahooFinance.quote(symbol + '.TWO', queryOptions);
+        } catch (err2) {
+          result = await yahooFinance.quote(symbol, queryOptions);
+        }
       }
     }
     
@@ -64,7 +68,12 @@ app.get("/api/historical/:symbol/:date", async (req, res) => {
           finalSymbol = symbol + '.TWO';
           result = await withTimeout(yahooFinance.historical(finalSymbol, queryOptions), 8000);
         } catch (err2: any) {
-          throw new Error('找不到這檔股票的資料，請確認代號是否正確。');
+          try {
+            finalSymbol = symbol;
+            result = await withTimeout(yahooFinance.historical(finalSymbol, queryOptions), 8000);
+          } catch (err3: any) {
+            throw new Error('找不到這檔股票的資料，請確認代號是否正確。');
+          }
         }
       }
     }
@@ -117,7 +126,15 @@ app.post("/api/quotes", async (req, res) => {
           try {
             qRes = await yahooFinance.quote(sym + '.TW', queryOptions);
           } catch (e) {
-            qRes = await yahooFinance.quote(sym + '.TWO', queryOptions);
+            try {
+              qRes = await yahooFinance.quote(sym + '.TWO', queryOptions);
+            } catch (e2) {
+              try {
+                qRes = await yahooFinance.quote(sym, queryOptions);
+              } catch (e3) {
+                // Ignore
+              }
+            }
           }
         }
         
