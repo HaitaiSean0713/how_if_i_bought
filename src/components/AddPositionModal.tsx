@@ -120,7 +120,7 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
               <input
                 type="text"
                 value={symbol}
-                onChange={(e) => setSymbol(e.target.value.replace(/[^a-zA-Z0-9\.]/g, ''))}
+                onChange={(e) => setSymbol(e.target.value.replace(/[^a-zA-Z0-9\.\-\^]/g, ''))}
                 placeholder="例如: 2330"
                 className="input-field transition-colors focus:border-[#C5A059] outline-none uppercase placeholder:normal-case placeholder:text-[#6B7280]/50"
                 required
