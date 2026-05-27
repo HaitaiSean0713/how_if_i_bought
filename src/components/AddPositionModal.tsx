@@ -44,7 +44,7 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
       
       let response: Response;
       try {
-        response = await fetch(`/api/historical/${symbol}/${buyDate}`, {
+        response = await fetch(`/api/historical/${symbol}/${buyDate}?t=${Date.now()}`, {
           signal: controller.signal
         });
       } catch (fetchErr: any) {
