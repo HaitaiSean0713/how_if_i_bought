@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node -e \"const fs = require('fs'); if (!fs.existsSync('firebase-applet-config.json')) fs.writeFileSync('firebase-applet-config.json', JSON.stringify({projectId:'',appId:'',apiKey:'',authDomain:'',firestoreDatabaseId:'',storageBucket:'',messagingSenderId:'',measurementId:''}));\"",
     "dev": "tsx server.ts",
+    "prebuild": "node -e \"const fs = require('fs'); if (!fs.existsSync('firebase-applet-config.json')) fs.writeFileSync('firebase-applet-config.json', JSON.stringify({projectId:'',appId:'',apiKey:'',authDomain:'',firestoreDatabaseId:'',storageBucket:'',messagingSenderId:'',measurementId:''}));\"",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
