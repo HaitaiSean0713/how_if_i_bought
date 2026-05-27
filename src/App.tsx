@@ -170,6 +170,26 @@ function App() {
           return;
         }
 
+        // Check localStorage backup before creating a new default portfolio
+        const backupKey = `portfolios_${user.uid}`;
+        const backup = localStorage.getItem(backupKey);
+        if (backup) {
+          try {
+            const parsed = JSON.parse(backup) as Portfolio[];
+            if (parsed && parsed.length > 0) {
+              console.log('Restoring portfolios from localStorage backup');
+              setPortfolios(parsed);
+              setActivePortfolioId(parsed[0].id);
+              // Re-sync backup data to Firestore
+              parsed.forEach(p => handleCreatePortfolioInDB({ ...p, userId: user.uid }));
+              setIsLoadingPortfolios(false);
+              return;
+            }
+          } catch (e) {
+            console.error('Failed to parse localStorage backup:', e);
+          }
+        }
+
         const defaultPort: Portfolio = {
           id: crypto.randomUUID(),
           name: '預設組合',
@@ -191,10 +211,26 @@ function App() {
         });
         setPortfolios(loadedPortfolios);
         setActivePortfolioId(prev => loadedPortfolios.some(p => p.id === prev) ? prev : loadedPortfolios[0].id);
+        // Update localStorage backup with latest Firestore data
+        localStorage.setItem(`portfolios_${user.uid}`, JSON.stringify(loadedPortfolios));
       }
       setIsLoadingPortfolios(false);
     }, (error) => {
       setIsLoadingPortfolios(false);
+      // On Firestore error, try restoring from localStorage backup
+      const backupKey = `portfolios_${user.uid}`;
+      const backup = localStorage.getItem(backupKey);
+      if (backup) {
+        try {
+          const parsed = JSON.parse(backup) as Portfolio[];
+          if (parsed && parsed.length > 0) {
+            console.log('Firestore error, restoring from localStorage backup');
+            setPortfolios(parsed);
+            setActivePortfolioId(parsed[0].id);
+            return;
+          }
+        } catch (e) { /* ignore */ }
+      }
       handleFirestoreError(error, OperationType.LIST, 'portfolios');
     });
 
@@ -280,22 +316,29 @@ function App() {
     const current = portfolios.find(p => p.id === activePortfolioId) || portfolios[0];
     if (current) {
         const updated = updater(current);
+        const updatedWithTimestamp = { ...updated, updatedAt: Date.now() };
         
         // Optimistic UI update
         const idx = portfolios.findIndex(p => p.id === updated.id);
         const originalPortfolios = [...portfolios];
         if (idx !== -1) {
           const copy = [...portfolios];
-          copy[idx] = { ...updated, updatedAt: Date.now() };
+          copy[idx] = updatedWithTimestamp;
           setPortfolios(copy);
+
+          // Always persist to localStorage as backup (guest & logged-in users)
+          const storageKey = user ? `portfolios_${user.uid}` : 'portfolios_guest';
+          localStorage.setItem(storageKey, JSON.stringify(copy));
         }
         
-        // Background sync to Firestore (non-blocking)
-        syncActivePortfolio(updated).catch(err => {
-          // Rollback on failure
-          console.error('Firestore sync failed (non-blocking):', err);
-          setPortfolios(originalPortfolios);
-        });
+        // Background sync to Firestore (non-blocking, only for logged-in users)
+        if (!isGuest) {
+          syncActivePortfolio(updatedWithTimestamp).catch(err => {
+            // Rollback on failure
+            console.error('Firestore sync failed (non-blocking):', err);
+            setPortfolios(originalPortfolios);
+          });
+        }
     } else {
         throw new Error("找不到作用中的投資組合");
     }
