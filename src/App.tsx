@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical } from 'lucide-react';
 import { Position, QuoteData, PortfolioSummary, ClosedPosition, Portfolio } from './types';
 import { cn } from './lib/utils';
@@ -347,6 +347,22 @@ function App() {
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId) || portfolios[0];
   const positions = activePortfolio?.positions || [];
   const closedPositions = activePortfolio?.closedPositions || [];
+
+  const groupedPositions = useMemo(() => {
+    const groups: Record<string, Position & { history: Position[] }> = {};
+    for (const pos of positions) {
+      if (!groups[pos.symbol]) {
+        groups[pos.symbol] = { ...pos, history: [pos] };
+      } else {
+        const g = groups[pos.symbol];
+        g.shares += pos.shares;
+        g.totalCost += pos.totalCost;
+        g.buyPrice = g.totalCost / g.shares;
+        g.history.push(pos);
+      }
+    }
+    return Object.values(groups).sort((a, b) => b.totalCost - a.totalCost);
+  }, [positions]);
 
   const handleAddPosition = async (newPos: Omit<Position, 'id' | 'totalCost'>) => {
     await updateActivePortfolio(p => {
@@ -941,9 +957,9 @@ function App() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {positions.map((pos) => (
+                    {groupedPositions.map((pos) => (
                       <PositionCard 
-                        key={pos.id} 
+                        key={pos.symbol} 
                         position={pos} 
                         quote={quotes[pos.symbol] || quotes[pos.symbol + '.TW'] || quotes[pos.symbol + '.TWO']}
                         onRemove={handleRemovePosition}

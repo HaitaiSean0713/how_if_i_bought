@@ -1,5 +1,5 @@
-import React from 'react';
-import { TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { TrendingUp, TrendingDown, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Position, QuoteData } from '../types';
 import { cn } from '../lib/utils';
 
@@ -21,13 +21,14 @@ export function formatPercent(value: number) {
 }
 
 interface PositionCardProps {
-  position: Position;
+  position: Position & { history?: Position[] };
   quote?: QuoteData;
   onRemove: (id: string) => void;
   onSell: (position: Position, currentPrice?: number) => void;
 }
 
 export function PositionCard({ position, quote, onRemove, onSell }: PositionCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const currentPrice = quote?.regularMarketPrice || position.buyPrice;
   const currentValue = currentPrice * position.shares;
   const returnAmount = currentValue - position.totalCost;
@@ -35,6 +36,8 @@ export function PositionCard({ position, quote, onRemove, onSell }: PositionCard
   
   const isPositive = returnAmount > 0;
   const isNegative = returnAmount < 0;
+  
+  const hasHistory = position.history && position.history.length > 1;
 
   return (
     <div className="card-bg rounded-lg p-5 relative group transition-colors hover:border-[#333333]">
@@ -52,19 +55,31 @@ export function PositionCard({ position, quote, onRemove, onSell }: PositionCard
         </div>
         
         <div className="flex gap-2 items-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <button 
-            onClick={() => onSell(position, quote?.regularMarketPrice)}
-            className="text-xs text-[#C5A059] border border-[#C5A059]/30 bg-[#1C1C1F] hover:bg-[#C5A059]/10 px-2 py-1 rounded transition-colors uppercase tracking-wider"
-          >
-            平倉
-          </button>
-          <button 
-            onClick={() => onRemove(position.id)}
-            className="text-[#6B7280] hover:text-[#F87171] transition-colors p-1"
-            title="刪除紀錄"
-          >
-            <Trash2 size={18} />
-          </button>
+          {!hasHistory && (
+            <>
+              <button 
+                onClick={() => onSell(position, quote?.regularMarketPrice)}
+                className="text-xs text-[#C5A059] border border-[#C5A059]/30 bg-[#1C1C1F] hover:bg-[#C5A059]/10 px-2 py-1 rounded transition-colors uppercase tracking-wider"
+              >
+                平倉
+              </button>
+              <button 
+                onClick={() => onRemove(position.id)}
+                className="text-[#6B7280] hover:text-[#F87171] transition-colors p-1"
+                title="刪除紀錄"
+              >
+                <Trash2 size={18} />
+              </button>
+            </>
+          )}
+          {hasHistory && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-[#6B7280] hover:text-[#E5E7EB] flex items-center gap-1 text-xs px-2 py-1"
+            >
+              交易紀錄 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          )}
         </div>
       </div>
 
@@ -96,6 +111,34 @@ export function PositionCard({ position, quote, onRemove, onSell }: PositionCard
           </p>
         </div>
       </div>
+      
+      {hasHistory && isExpanded && (
+        <div className="mt-4 pt-4 border-t border-[#222226] space-y-3">
+          <p className="text-xs text-[#6B7280] mb-2">個別交易紀錄</p>
+          {position.history!.map((histPos) => (
+            <div key={histPos.id} className="flex justify-between items-center bg-[#1C1C1F] p-3 rounded border border-[#333333]">
+              <div>
+                <p className="text-sm text-[#E5E7EB]">{histPos.buyDate}</p>
+                <p className="text-xs text-[#6B7280]">{histPos.shares.toLocaleString()} 股 @ {formatCurrency(histPos.buyPrice)}</p>
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => onSell(histPos, quote?.regularMarketPrice)}
+                  className="text-xs text-[#C5A059] border border-[#C5A059]/30 hover:bg-[#C5A059]/10 px-2 py-1 rounded transition-colors"
+                >
+                  平倉
+                </button>
+                <button 
+                  onClick={() => onRemove(histPos.id)}
+                  className="text-[#6B7280] hover:text-[#F87171] transition-colors p-1"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

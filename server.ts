@@ -152,7 +152,17 @@ async function startServer() {
       try {
         const quoteRes = await withTimeout(yahooFinance.quote(resolvedSymbol, { lang: 'zh-Hant', region: 'TW' }), 4000);
         enrichWithChineseName(finalData, quoteRes);
-        if (finalData.close == null && quoteRes.regularMarketPrice) {
+        
+        const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+        if (isToday) {
+          if (quoteRes.regularMarketOpen) {
+            finalData.close = quoteRes.regularMarketOpen;
+          } else if (quoteRes.regularMarketPreviousClose) {
+            finalData.close = quoteRes.regularMarketPreviousClose;
+          } else if (quoteRes.regularMarketPrice) {
+            finalData.close = quoteRes.regularMarketPrice;
+          }
+        } else if (finalData.close == null && quoteRes.regularMarketPrice) {
           finalData.close = quoteRes.regularMarketPrice;
         }
       } catch (e) {
