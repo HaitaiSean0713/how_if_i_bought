@@ -119,6 +119,39 @@ function App() {
     }
   }, [user, isGuest]);
 
+  // Migrate guest portfolios upon login
+  useEffect(() => {
+    if (!user) return;
+    
+    const migrateGuestPortfolios = async () => {
+      try {
+        const cached = localStorage.getItem('portfolios_guest');
+        if (!cached) return;
+        
+        const parsed = JSON.parse(cached) as Portfolio[];
+        if (parsed && parsed.length > 0) {
+          const migratedPorts = parsed.map(port => ({
+            ...port,
+            userId: user.uid,
+            updatedAt: Date.now()
+          }));
+          
+          // Save them to Firestore and await successful write
+          await Promise.all(migratedPorts.map(p => handleCreatePortfolioInDB(p)));
+          
+          // Only remove local storage on successful DB upload
+          localStorage.removeItem('portfolios_guest');
+          localStorage.removeItem('active_portfolio_id_guest');
+          console.log("Guest portfolios migrated to Firestore successfully.");
+        }
+      } catch (err) {
+        console.error("Failed to migrate guest portfolios:", err);
+      }
+    };
+    
+    migrateGuestPortfolios();
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     setIsLoadingPortfolios(true);
@@ -130,53 +163,25 @@ function App() {
       });
       // Optionally fallback if empty
       if (loadedPortfolios.length === 0) {
-        let migrated = false;
-        try {
-          const cached = localStorage.getItem('portfolios_guest');
-          if (cached) {
-            const parsed = JSON.parse(cached) as Portfolio[];
-            if (parsed && parsed.length > 0) {
-              const migratedPorts = parsed.map(port => ({
-                ...port,
-                userId: user.uid,
-                updatedAt: Date.now()
-              }));
-              
-              // Save them to Firestore
-              Promise.all(migratedPorts.map(p => handleCreatePortfolioInDB(p)))
-                .catch(err => console.error("Error writing migrated portfolios to Firestore:", err));
-              
-              setPortfolios(migratedPorts);
-              const savedActiveId = localStorage.getItem('active_portfolio_id_guest');
-              if (savedActiveId && migratedPorts.some(p => p.id === savedActiveId)) {
-                setActivePortfolioId(savedActiveId);
-              } else {
-                setActivePortfolioId(migratedPorts[0].id);
-              }
-              
-              localStorage.removeItem('portfolios_guest');
-              localStorage.removeItem('active_portfolio_id_guest');
-              migrated = true;
-            }
-          }
-        } catch (e) {
-          console.error("Failed to migrate guest portfolios:", e);
+        // Check if there is guest portfolios waiting to be migrated
+        const hasGuestData = !!localStorage.getItem('portfolios_guest');
+        if (hasGuestData) {
+          // Wait for migration to complete and trigger onSnapshot again
+          return;
         }
 
-        if (!migrated) {
-          const defaultPort: Portfolio = {
-            id: crypto.randomUUID(),
-            name: '預設組合',
-            positions: [],
-            closedPositions: [],
-            userId: user.uid,
-            createdAt: Date.now(),
-            sortOrder: 0
-          };
-          setPortfolios([defaultPort]);
-          setActivePortfolioId(defaultPort.id);
-          handleCreatePortfolioInDB(defaultPort);
-        }
+        const defaultPort: Portfolio = {
+          id: crypto.randomUUID(),
+          name: '預設組合',
+          positions: [],
+          closedPositions: [],
+          userId: user.uid,
+          createdAt: Date.now(),
+          sortOrder: 0
+        };
+        setPortfolios([defaultPort]);
+        setActivePortfolioId(defaultPort.id);
+        handleCreatePortfolioInDB(defaultPort);
       } else {
         // Sort portfolios: prioritize sortOrder, fallback to createdAt or 0
         loadedPortfolios.sort((a, b) => {
@@ -215,10 +220,23 @@ function App() {
       }
       return;
     }
+    // Firestore sync is non-blocking — optimistic update is already applied.
+    // Any Firestore error (network, config, permission) is caught silently.
+    // With persistentLocalCache, data is written to IndexedDB first and synced when online.
     try {
-      await setDoc(doc(db, 'portfolios', updated.id), { ...updated, updatedAt: Date.now() }, { merge: true });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, 'portfolios/' + updated.id);
+      await Promise.race([
+        setDoc(doc(db, 'portfolios', updated.id), { ...updated, updatedAt: Date.now() }, { merge: true }),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('firestore_timeout')), 5000)
+        ),
+      ]);
+    } catch (err: any) {
+      // Always non-fatal — do NOT re-throw. UI update is already optimistically applied.
+      if (err?.message === 'firestore_timeout') {
+        console.warn('Firestore write timed out — data saved locally and will sync later.');
+      } else {
+        console.error('Firestore sync error (non-fatal):', err?.message || err);
+      }
     }
   };
 
@@ -272,13 +290,12 @@ function App() {
           setPortfolios(copy);
         }
         
-        try {
-          await syncActivePortfolio(updated);
-        } catch (err) {
+        // Background sync to Firestore (non-blocking)
+        syncActivePortfolio(updated).catch(err => {
           // Rollback on failure
+          console.error('Firestore sync failed (non-blocking):', err);
           setPortfolios(originalPortfolios);
-          throw err;
-        }
+        });
     } else {
         throw new Error("找不到作用中的投資組合");
     }
@@ -289,12 +306,37 @@ function App() {
   const closedPositions = activePortfolio?.closedPositions || [];
 
   const handleAddPosition = async (newPos: Omit<Position, 'id' | 'totalCost'>) => {
-    const position: Position = {
-      ...newPos,
-      id: crypto.randomUUID(),
-      totalCost: newPos.buyPrice * newPos.shares,
-    };
-    await updateActivePortfolio(p => ({ ...p, positions: [...p.positions, position] }));
+    await updateActivePortfolio(p => {
+      const positions = [...p.positions];
+      const existingIndex = positions.findIndex(
+        pos => pos.symbol === newPos.symbol && pos.buyDate === newPos.buyDate
+      );
+
+      if (existingIndex !== -1) {
+        const existing = positions[existingIndex];
+        const newShares = existing.shares + newPos.shares;
+        const newTotalCost = existing.totalCost + newPos.buyPrice * newPos.shares;
+        
+        positions[existingIndex] = {
+          ...existing,
+          shares: newShares,
+          totalCost: newTotalCost,
+          buyPrice: newShares > 0 ? newTotalCost / newShares : 0,
+        };
+      } else {
+        const position: Position = {
+          ...newPos,
+          id: crypto.randomUUID(),
+          totalCost: newPos.buyPrice * newPos.shares,
+        };
+        positions.push(position);
+      }
+
+      return {
+        ...p,
+        positions,
+      };
+    });
     setActiveTab('active');
   };
 

@@ -25,6 +25,12 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
     setIsLoading(true);
     setError('');
 
+    // 最終保險：無論如何，10 秒後強制解除 loading 狀態
+    const safetyTimer = setTimeout(() => {
+      setIsLoading(false);
+      setError('操作逾時，請重試');
+    }, 10000);
+
     try {
       // Input Validation
       const parsedShares = parseInt(shares);
@@ -34,11 +40,20 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
 
       // Fetch historical data to get buy price
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       
-      const response = await fetch(`/api/historical/${symbol}/${buyDate}`, {
-        signal: controller.signal
-      });
+      let response: Response;
+      try {
+        response = await fetch(`/api/historical/${symbol}/${buyDate}`, {
+          signal: controller.signal
+        });
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        if (fetchErr.name === 'AbortError') {
+          throw new Error('查詢超時，請稍後再試（Yahoo Finance 回應過慢）');
+        }
+        throw new Error('網路連線失敗，請確認伺服器已啟動');
+      }
       clearTimeout(timeoutId);
       
       if (!response.ok) {
@@ -52,15 +67,17 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
           throw new Error('找不到歷史股價，請確認日期是否為交易日或代碼是否正確。');
       }
 
-      await onAdd({
+      onAdd({
         symbol: historicalData.actualSymbol || symbol.toUpperCase(),
         shortName: historicalData.shortName,
         shares: parsedShares,
         buyDate,
         buyPrice: historicalData.close,
+      }).catch((err: any) => {
+        console.error('Error adding position:', err);
       });
 
-      // Reset and close
+      // Reset and close immediately
       setSymbol('');
       setShares('');
       setBuyDate(format(new Date(), 'yyyy-MM-dd'));
@@ -68,6 +85,7 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
     } catch (err: any) {
       setError(err.message || '新增失敗');
     } finally {
+      clearTimeout(safetyTimer);
       setIsLoading(false);
     }
   };
