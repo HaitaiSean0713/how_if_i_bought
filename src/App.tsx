@@ -67,6 +67,7 @@ function App() {
         }
       } else {
         setIsGuest(false);
+        setPortfolios([]); // 登入時清空暫存的訪客狀態，避免過渡期狀態洩漏
         localStorage.removeItem('is_guest_mode');
       }
     });
