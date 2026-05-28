@@ -167,9 +167,12 @@ async function startServer() {
         const taiwanTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
         const taiwanDateStr = taiwanTime.toISOString().split('T')[0];
         const isToday = dateStr === taiwanDateStr;
+        console.log(`[API Debug] Requested Date: ${dateStr}, Taiwan Today: ${taiwanDateStr}, isToday: ${isToday}`);
         if (isToday) {
           const taiwanHour = taiwanTime.getUTCHours();
           const isBeforeOpen = taiwanHour < 9;
+          console.log(`[API Debug] Taiwan Hour: ${taiwanHour}, isBeforeOpen: ${isBeforeOpen}`);
+          console.log(`[API Debug] quoteRes regularMarketPrice: ${quoteRes?.regularMarketPrice}, previousClose: ${quoteRes?.regularMarketPreviousClose}`);
           if (isBeforeOpen) {
             finalData.close = quoteRes.regularMarketPreviousClose || finalData.close;
           } else {
@@ -178,8 +181,9 @@ async function startServer() {
         } else if (finalData.close == null && quoteRes.regularMarketPrice) {
           finalData.close = quoteRes.regularMarketPrice;
         }
-      } catch (e) {
-        // Ignored
+        console.log(`[API Debug] Final returned price for ${symbol} (${resolvedSymbol}): ${finalData.close}`);
+      } catch (e: any) {
+        console.log(`[API Debug] Quote fetch error: ${e.message}`);
       }
       
       res.json(finalData);
