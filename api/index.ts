@@ -80,6 +80,13 @@ function enrichWithChineseName(result: any, quoteRes: any) {
   }
 }
 
+// Convert any date to Taiwan timezone date string (YYYY-MM-DD)
+function toTWDateStr(d: any): string {
+  const dt = new Date(d);
+  const twMs = dt.getTime() + 8 * 60 * 60 * 1000;
+  return new Date(twMs).toISOString().split('T')[0];
+}
+
 app.get("/api/stock/:symbol", async (req, res) => {
   try {
     const symbol = req.params.symbol.toUpperCase();
@@ -135,17 +142,34 @@ app.get("/api/historical/:symbol/:date", async (req, res) => {
       return res.status(404).json({ error: "找不到該日期的歷史股價" });
     }
     
-    // Get the closest date <= requested date
+    // Get the closest date <= requested date (compare Taiwan date strings to avoid timezone mismatch)
     const sorted = [...result].sort((a: any, b: any) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-    const closest = sorted.find((d: any) => new Date(d.date).getTime() <= new Date(dateStr).getTime());
+    const closest = sorted.find((d: any) => toTWDateStr(d.date) <= dateStr);
     const finalData = { ...(closest || result[result.length - 1]), actualSymbol: resolvedSymbol, shortName: symbol };
     
-    // Try to get Chinese name
+    // Try to get Chinese name and today's dynamic price
     try {
       const quoteRes = await withTimeout(yahooFinance.quote(resolvedSymbol, { lang: 'zh-Hant', region: 'TW' }), 3000);
       enrichWithChineseName(finalData, quoteRes);
+      
+      const now = new Date();
+      const taiwanTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+      const taiwanDateStr = taiwanTime.toISOString().split('T')[0];
+      const isToday = dateStr === taiwanDateStr;
+      
+      if (isToday) {
+        const taiwanHour = taiwanTime.getUTCHours();
+        const isBeforeOpen = taiwanHour < 9;
+        if (isBeforeOpen) {
+          finalData.close = quoteRes.regularMarketPreviousClose || finalData.close;
+        } else {
+          finalData.close = quoteRes.regularMarketPrice || finalData.close;
+        }
+      } else if (finalData.close == null && quoteRes.regularMarketPrice) {
+        finalData.close = quoteRes.regularMarketPrice;
+      }
     } catch (e) {
       // Name lookup failed, use symbol as fallback
     }
