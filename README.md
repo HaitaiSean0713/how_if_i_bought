@@ -1,11 +1,9 @@
 # 📈 如果我當初有買 (How If I Bought) - 台股歷史回測與模擬投資系統
 
-![應用程式 UI 宣傳圖](file:///C:/Users/Acer/.gemini/antigravity/brain/97a19f53-23bd-41d8-8e13-9d3d6316f636/app_ui_promo_1779964443918.png)
-
 一款專為台股投資人設計的歷史回測 (Backtesting) 與模擬投資組合 (Portfolio) 管理系統。
 它能幫你快速解答：「如果我當初在某個時間點，以某個價格買了這檔股票，現在的資產會變怎樣？」不再需要手動拉 Excel 歷史股價，用最直覺、優雅的方式驗證你的投資直覺。
 
-👉 **線上直接體驗：[https://ifiboughtit.vercel.app/](https://ifiboughtit.vercel.app/)**
+**線上直接體驗：[https://ifiboughtit.vercel.app/](https://ifiboughtit.vercel.app/)**
 
 ---
 
