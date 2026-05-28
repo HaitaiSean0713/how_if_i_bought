@@ -30,7 +30,7 @@ export function ClosedPositionCard({ position, onRemove }: ClosedPositionCardPro
         
         <button 
           onClick={() => onRemove(position.id)}
-          className="text-[#6B7280] hover:text-[#F87171] transition-colors opacity-0 group-hover:opacity-100 p-1"
+          className="text-[#6B7280] hover:text-[#F87171] transition-colors lg:opacity-0 lg:group-hover:opacity-100 opacity-100 p-1"
           title="刪除紀錄"
         >
           <Trash2 size={18} />

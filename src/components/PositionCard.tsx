@@ -54,7 +54,7 @@ export function PositionCard({ position, quote, onRemove, onSell }: PositionCard
           </p>
         </div>
         
-        <div className="flex gap-2 items-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-2 items-center lg:opacity-0 lg:group-hover:opacity-100 opacity-100 transition-opacity">
           {!hasHistory && (
             <>
               <button 

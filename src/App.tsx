@@ -598,9 +598,9 @@ function App() {
     <div className="min-h-screen bg-[#0A0A0C] text-[#E5E7EB] font-sans selection:bg-[#C5A059]/30">
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
-        <header className="mb-8 flex justify-between items-center">
+        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight gold-text serif flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight gold-text serif flex items-center gap-2">
               <Activity className="gold-text" />
               如果我當初有買
             </h1>
@@ -817,8 +817,8 @@ function App() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex bg-[#141417] border border-[#222226] rounded p-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div className="flex bg-[#141417] border border-[#222226] rounded p-1 justify-center sm:justify-start">
                 <button
                   onClick={() => setActiveTab('active')}
                   className={cn("px-4 py-1.5 text-sm rounded transition-colors whitespace-nowrap", activeTab === 'active' ? "bg-[#1C1C1F] text-[#C5A059] shadow-sm font-medium" : "text-[#6B7280] hover:text-[#E5E7EB]")}
@@ -833,7 +833,7 @@ function App() {
                 </button>
               </div>
               {activeTab === 'active' && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 justify-end">
                   <button 
                     onClick={fetchQuotes}
                     disabled={isRefreshing || positions.length === 0}
