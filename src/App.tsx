@@ -119,39 +119,6 @@ function App() {
     }
   }, [user, isGuest]);
 
-  // Migrate guest portfolios upon login
-  useEffect(() => {
-    if (!user) return;
-    
-    const migrateGuestPortfolios = async () => {
-      try {
-        const cached = localStorage.getItem('portfolios_guest');
-        if (!cached) return;
-        
-        const parsed = JSON.parse(cached) as Portfolio[];
-        if (parsed && parsed.length > 0) {
-          const migratedPorts = parsed.map(port => ({
-            ...port,
-            userId: user.uid,
-            updatedAt: Date.now()
-          }));
-          
-          // Save them to Firestore and await successful write
-          await Promise.all(migratedPorts.map(p => handleCreatePortfolioInDB(p)));
-          
-          // Only remove local storage on successful DB upload
-          localStorage.removeItem('portfolios_guest');
-          localStorage.removeItem('active_portfolio_id_guest');
-          console.log("Guest portfolios migrated to Firestore successfully.");
-        }
-      } catch (err) {
-        console.error("Failed to migrate guest portfolios:", err);
-      }
-    };
-    
-    migrateGuestPortfolios();
-  }, [user]);
-
   useEffect(() => {
     if (!user) return;
     setIsLoadingPortfolios(true);
@@ -163,13 +130,6 @@ function App() {
       });
       // Optionally fallback if empty
       if (loadedPortfolios.length === 0) {
-        // Check if there is guest portfolios waiting to be migrated
-        const hasGuestData = !!localStorage.getItem('portfolios_guest');
-        if (hasGuestData) {
-          // Wait for migration to complete and trigger onSnapshot again
-          return;
-        }
-
         // Check localStorage backup before creating a new default portfolio
         const backupKey = `portfolios_${user.uid}`;
         const backup = localStorage.getItem(backupKey);
