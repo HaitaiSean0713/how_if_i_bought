@@ -51,8 +51,8 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
       }
 
       const parsedShares = parseFloat(sellShares);
-      if (isNaN(parsedShares) || parsedShares <= 0 || (position && parsedShares > position.shares)) {
-        throw new Error('請輸入有效的賣出股數 (大於 0 且不高於持股數)');
+      if (isNaN(parsedShares) || !Number.isInteger(parsedShares) || parsedShares <= 0 || (position && parsedShares > position.shares)) {
+        throw new Error('請輸入有效的賣出股數 (必須為整數且不高於持股數)');
       }
 
       await onConfirm(sellDate, parsedPrice, parsedShares);
@@ -102,8 +102,8 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
               type="number"
               value={sellShares}
               onChange={(e) => setSellShares(e.target.value)}
-              step="any"
-              min="0.000001"
+              step="1"
+              min="1"
               max={position.shares}
               placeholder={`最大: ${position.shares}`}
               className="input-field transition-colors focus:border-[#C5A059] outline-none"
