@@ -112,7 +112,7 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
             <div className="flex gap-2 mt-1">
               <button
                 type="button"
-                onClick={() => setSellShares((position.shares / 2).toString())}
+                onClick={() => setSellShares(Math.floor(position.shares / 2).toString())}
                 className="px-2 py-1 text-xs rounded bg-[#1C1C1F] text-[#6B7280] hover:text-[#C5A059] hover:bg-[#222226] transition-colors"
               >
                 1/2 股數
