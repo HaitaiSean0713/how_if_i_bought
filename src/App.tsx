@@ -407,15 +407,25 @@ function App() {
     updateActivePortfolio(p => ({ ...p, closedPositions: p.closedPositions.filter(pos => pos.id !== id) }));
   };
 
-  const handleSellPosition = async (sellDate: string, sellPrice: number) => {
+  const handleSellPosition = async (sellDate: string, sellPrice: number, sellShares: number) => {
     if (!sellModalData) return;
     const { position } = sellModalData;
     
-    const realizedReturn = (sellPrice - position.buyPrice) * position.shares;
-    const realizedReturnPercent = position.totalCost > 0 ? (realizedReturn / position.totalCost) * 100 : 0;
+    if (sellShares <= 0 || sellShares > position.shares) {
+      alert('無效的賣出股數');
+      return;
+    }
+
+    const partialSell = sellShares < position.shares;
+    const costForSoldShares = position.buyPrice * sellShares;
+    const realizedReturn = (sellPrice - position.buyPrice) * sellShares;
+    const realizedReturnPercent = costForSoldShares > 0 ? (realizedReturn / costForSoldShares) * 100 : 0;
 
     const closedPos: ClosedPosition = {
       ...position,
+      id: crypto.randomUUID(), // 使用新ID，以防多次部分平倉導致 ID 重複
+      shares: sellShares,
+      totalCost: costForSoldShares,
       shortName: position.shortName || quotes[position.symbol]?.shortName,
       sellDate,
       sellPrice,
@@ -424,11 +434,31 @@ function App() {
     };
 
     try {
-      await updateActivePortfolio(p => ({
-        ...p,
-        closedPositions: [closedPos, ...p.closedPositions],
-        positions: p.positions.filter(pos => pos.id !== position.id)
-      }));
+      await updateActivePortfolio(p => {
+        let updatedPositions;
+        if (partialSell) {
+          updatedPositions = p.positions.map(pos => {
+            if (pos.id === position.id) {
+              const remainingShares = pos.shares - sellShares;
+              const remainingCost = pos.totalCost - costForSoldShares;
+              return {
+                ...pos,
+                shares: remainingShares,
+                totalCost: remainingCost,
+              };
+            }
+            return pos;
+          });
+        } else {
+          updatedPositions = p.positions.filter(pos => pos.id !== position.id);
+        }
+
+        return {
+          ...p,
+          positions: updatedPositions,
+          closedPositions: [closedPos, ...p.closedPositions],
+        };
+      });
       setSellModalData(null);
     } catch (err) {
       console.error('Failed to sell position:', err);

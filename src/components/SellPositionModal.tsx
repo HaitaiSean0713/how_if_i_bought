@@ -9,28 +9,37 @@ interface SellPositionModalProps {
   onClose: () => void;
   position: Position | null;
   currentPrice?: number;
-  onConfirm: (sellDate: string, sellPrice: number) => Promise<void>;
+  onConfirm: (sellDate: string, sellPrice: number, sellShares: number) => Promise<void>;
 }
 
 export function SellPositionModal({ isOpen, onClose, position, currentPrice, onConfirm }: SellPositionModalProps) {
   const [sellDate, setSellDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [sellPrice, setSellPrice] = useState('');
+  const [sellShares, setSellShares] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (isOpen && currentPrice) {
-      setSellPrice(currentPrice.toString());
+    if (isOpen) {
+      if (currentPrice) {
+        setSellPrice(currentPrice.toString());
+      } else {
+        setSellPrice('');
+      }
+      if (position) {
+        setSellShares(position.shares.toString());
+      }
     } else {
       setSellPrice('');
+      setSellShares('');
     }
-  }, [isOpen, currentPrice]);
+  }, [isOpen, currentPrice, position]);
 
   if (!isOpen || !position) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sellDate || !sellPrice) return;
+    if (!sellDate || !sellPrice || !sellShares) return;
 
     setIsLoading(true);
     setError('');
@@ -41,7 +50,12 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
         throw new Error('請輸入有效的賣出價格');
       }
 
-      await onConfirm(sellDate, parsedPrice);
+      const parsedShares = parseFloat(sellShares);
+      if (isNaN(parsedShares) || parsedShares <= 0 || (position && parsedShares > position.shares)) {
+        throw new Error('請輸入有效的賣出股數 (大於 0 且不高於持股數)');
+      }
+
+      await onConfirm(sellDate, parsedPrice, parsedShares);
 
       setSellDate(format(new Date(), 'yyyy-MM-dd'));
       onClose();
@@ -78,8 +92,39 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
           
           <div className="mb-4">
             <p className="text-[#E5E7EB] serif">{position.symbol.replace(/\.TW(O)?$/, '')}</p>
-            <p className="text-sm text-[#6B7280]">股數: {position.shares.toLocaleString()}</p>
+            <p className="text-sm text-[#6B7280]">持有股數: {position.shares.toLocaleString()}</p>
             <p className="text-sm text-[#6B7280]">買進均價: {position.buyPrice}</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block label-text">賣出股數 (最大: {position.shares.toLocaleString()})</label>
+            <input
+              type="number"
+              value={sellShares}
+              onChange={(e) => setSellShares(e.target.value)}
+              step="any"
+              min="0.000001"
+              max={position.shares}
+              placeholder={`最大: ${position.shares}`}
+              className="input-field transition-colors focus:border-[#C5A059] outline-none"
+              required
+            />
+            <div className="flex gap-2 mt-1">
+              <button
+                type="button"
+                onClick={() => setSellShares((position.shares / 2).toString())}
+                className="px-2 py-1 text-xs rounded bg-[#1C1C1F] text-[#6B7280] hover:text-[#C5A059] hover:bg-[#222226] transition-colors"
+              >
+                1/2 股數
+              </button>
+              <button
+                type="button"
+                onClick={() => setSellShares(position.shares.toString())}
+                className="px-2 py-1 text-xs rounded bg-[#1C1C1F] text-[#6B7280] hover:text-[#C5A059] hover:bg-[#222226] transition-colors"
+              >
+                全部股數
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1.5">
