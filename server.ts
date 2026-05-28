@@ -70,6 +70,13 @@ async function startServer() {
     throw new Error('找不到這檔股票的資料，請確認代號是否正確。');
   }
 
+  // Convert any date to Taiwan timezone date string (YYYY-MM-DD)
+  function toTWDateStr(d: any): string {
+    const dt = new Date(d);
+    const twMs = dt.getTime() + 8 * 60 * 60 * 1000;
+    return new Date(twMs).toISOString().split('T')[0];
+  }
+
   function enrichWithChineseName(result: any, quoteRes: any) {
     if (quoteRes) {
       if (quoteRes.longName && chineseRegex.test(quoteRes.longName)) {
@@ -145,11 +152,11 @@ async function startServer() {
       const validQuotes = result.filter((q: any) => q.close != null);
       const dataToSearch = validQuotes.length > 0 ? validQuotes : result;
       
-      // Get the closest date <= requested date
+      // Get the closest date <= requested date (compare Taiwan date strings to avoid timezone mismatch)
       const sorted = [...dataToSearch].sort((a: any, b: any) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
-      const closest = sorted.find((d: any) => new Date(d.date).getTime() <= new Date(dateStr).getTime());
+      const closest = sorted.find((d: any) => toTWDateStr(d.date) <= dateStr);
       const finalData = { ...(closest || dataToSearch[dataToSearch.length - 1]), actualSymbol: resolvedSymbol, shortName: symbol };
       
       try {
