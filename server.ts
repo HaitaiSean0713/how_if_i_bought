@@ -118,9 +118,12 @@ async function startServer() {
         return res.status(400).json({ error: '日期格式不正確，請使用 YYYY-MM-DD' });
       }
       
+      const parts = dateStr.split('-');
+      const localDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+
       const queryOptions = {
-        period1: format(subDays(new Date(dateStr), 14), 'yyyy-MM-dd'),
-        period2: format(new Date(new Date(dateStr).getTime() + 86400000), 'yyyy-MM-dd')
+        period1: format(subDays(localDate, 14), 'yyyy-MM-dd'),
+        period2: format(new Date(localDate.getTime() + 86400000), 'yyyy-MM-dd')
       };
       
       // Use chart() instead of deprecated historical()
@@ -153,14 +156,14 @@ async function startServer() {
         const quoteRes = await withTimeout(yahooFinance.quote(resolvedSymbol, { lang: 'zh-Hant', region: 'TW' }), 4000);
         enrichWithChineseName(finalData, quoteRes);
         
-        const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+        const now = new Date();
+        const isToday = dateStr === format(now, 'yyyy-MM-dd');
         if (isToday) {
-          if (quoteRes.regularMarketOpen) {
-            finalData.close = quoteRes.regularMarketOpen;
-          } else if (quoteRes.regularMarketPreviousClose) {
-            finalData.close = quoteRes.regularMarketPreviousClose;
-          } else if (quoteRes.regularMarketPrice) {
-            finalData.close = quoteRes.regularMarketPrice;
+          const isBeforeOpen = now.getHours() < 9;
+          if (isBeforeOpen) {
+            finalData.close = quoteRes.regularMarketPreviousClose || finalData.close;
+          } else {
+            finalData.close = quoteRes.regularMarketPrice || finalData.close;
           }
         } else if (finalData.close == null && quoteRes.regularMarketPrice) {
           finalData.close = quoteRes.regularMarketPrice;
