@@ -157,9 +157,12 @@ async function startServer() {
         enrichWithChineseName(finalData, quoteRes);
         
         const now = new Date();
-        const isToday = dateStr === format(now, 'yyyy-MM-dd');
+        const taiwanTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+        const taiwanDateStr = taiwanTime.toISOString().split('T')[0];
+        const isToday = dateStr === taiwanDateStr;
         if (isToday) {
-          const isBeforeOpen = now.getHours() < 9;
+          const taiwanHour = taiwanTime.getUTCHours();
+          const isBeforeOpen = taiwanHour < 9;
           if (isBeforeOpen) {
             finalData.close = quoteRes.regularMarketPreviousClose || finalData.close;
           } else {
