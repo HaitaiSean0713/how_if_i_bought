@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical } from 'lucide-react';
-import { Position, QuoteData, PortfolioSummary, ClosedPosition, Portfolio } from './types';
+import { Position, QuoteData, PortfolioSummary, Portfolio } from './types';
 import { cn } from './lib/utils';
 import { AddPositionModal } from './components/AddPositionModal';
 import { PositionCard, formatCurrency, formatPercent } from './components/PositionCard';
@@ -9,9 +9,9 @@ import { ClosedPositionCard } from './components/ClosedPositionCard';
 import { PortfolioModal } from './components/PortfolioModal';
 import { auth, db, loginWithGoogle, logout } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, writeBatch, runTransaction } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { migrateGuestPortfolios } from './lib/guestMigration';
-import { handleFirestoreError, OperationType } from './lib/firebaseErrors';
+import { readPortfolioDocument, sortPortfolios, operationError, sellPosition } from './lib/portfolioOperations';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -29,6 +29,11 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sellModalData, setSellModalData] = useState<{ position: Position, currentPrice?: number } | null>(null);
   const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
+  const [operationMessage, setOperationMessage] = useState('');
+  const [pendingAction, setPendingAction] = useState('');
+  const operationInFlight = useRef(false);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
@@ -65,19 +70,14 @@ function App() {
     }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (!currentUser) {
-        if (!isGuest) {
-          setPortfolios([]);
-          setIsLoadingPortfolios(false);
-        }
-      } else {
+      if (currentUser) {
         setIsGuest(false);
-        setPortfolios([]); // 登入時清空暫存的訪客狀態，避免過渡期狀態洩漏
+        setPortfolios([]);
         localStorage.removeItem('is_guest_mode');
       }
     });
     return () => unsubscribe();
-  }, [isGuest]);
+  }, []);
 
   // Load guest mode portfolios if applicable
   useEffect(() => {
@@ -126,8 +126,9 @@ function App() {
   }, [user, isGuest]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !db) { setCloudReady(false); return; }
     setIsLoadingPortfolios(true);
+    setCloudReady(false);
     let cancelled = false;
     let unsubscribe = () => {};
     const subscribe = async () => {
@@ -140,126 +141,76 @@ function App() {
           });
         });
       } catch (error) {
-        console.error('Guest migration failed:', error);
-        if (!cancelled) setLoginError('訪客資料尚未完成移轉，本地資料已保留。請確認連線後重新登入以重試。');
+        if (!cancelled) setOperationMessage('訪客資料尚未完成移轉，本地資料已保留。' + operationError(error));
       }
       if (cancelled) return;
       const q = query(collection(db, 'portfolios'), where('userId', '==', user.uid));
-      unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
-        // An empty cache is not proof that the account has no cloud data.
-        if (snapshot.empty && snapshot.metadata.fromCache) return;
-        const loadedPortfolios: Portfolio[] = [];
-        snapshot.forEach(doc => {
-          loadedPortfolios.push(doc.data() as Portfolio);
+      unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, snapshot => {
+        if (cancelled) return;
+        // The document path is authoritative; legacy data may contain a different id.
+        const loaded = sortPortfolios(snapshot.docs.map(item => readPortfolioDocument(item.id, item.data())));
+        setPortfolios(loaded);
+        setActivePortfolioId(previous => {
+          let saved = '';
+          try { saved = localStorage.getItem(`active_portfolio_id_${user.uid}`) || ''; } catch {}
+          return loaded.some(p => p.id === previous) ? previous : loaded.some(p => p.id === saved) ? saved : loaded[0]?.id || '';
         });
-        // Optionally fallback if empty
-        if (loadedPortfolios.length === 0) {
-          // Check localStorage backup before creating a new default portfolio
-          const backupKey = `portfolios_${user.uid}`;
-          const backup = localStorage.getItem(backupKey);
-          if (backup) {
-            try {
-              const parsed = JSON.parse(backup) as Portfolio[];
-              if (parsed && parsed.length > 0) {
-                console.log('Restoring portfolios from localStorage backup');
-                setPortfolios(parsed);
-                setActivePortfolioId(parsed[0].id);
-                // Re-sync backup data to Firestore
-                parsed.forEach(p => handleCreatePortfolioInDB({ ...p, userId: user.uid }));
-                setIsLoadingPortfolios(false);
-                return;
-              }
-            } catch (e) {
-              console.error('Failed to parse localStorage backup:', e);
-            }
-          }
-
-          const defaultPort: Portfolio = {
-            id: crypto.randomUUID(),
-            name: '預設組合',
-            positions: [],
-            closedPositions: [],
-            userId: user.uid,
-            createdAt: Date.now(),
-            sortOrder: 0
-          };
-          setPortfolios([defaultPort]);
-          setActivePortfolioId(defaultPort.id);
-          handleCreatePortfolioInDB(defaultPort);
-        } else {
-          // Sort portfolios: prioritize sortOrder, fallback to createdAt or 0
-          loadedPortfolios.sort((a, b) => {
-            const orderA = a.sortOrder !== undefined ? a.sortOrder : (a.createdAt || 0);
-            const orderB = b.sortOrder !== undefined ? b.sortOrder : (b.createdAt || 0);
-            return orderA - orderB;
-          });
-          setPortfolios(loadedPortfolios);
-          setActivePortfolioId(prev => loadedPortfolios.some(p => p.id === prev) ? prev : loadedPortfolios[0].id);
-          // Update localStorage backup with latest Firestore data
-          localStorage.setItem(`portfolios_${user.uid}`, JSON.stringify(loadedPortfolios));
-        }
         setIsLoadingPortfolios(false);
-      }, (error) => {
-        setIsLoadingPortfolios(false);
-        // On Firestore error, try restoring from localStorage backup
-        const backupKey = `portfolios_${user.uid}`;
-        const backup = localStorage.getItem(backupKey);
-        if (backup) {
-          try {
-            const parsed = JSON.parse(backup) as Portfolio[];
-            if (parsed && parsed.length > 0) {
-              console.log('Firestore error, restoring from localStorage backup');
-              setPortfolios(parsed);
-              setActivePortfolioId(parsed[0].id);
-              return;
-            }
-          } catch (e) { /* ignore */ }
+        if (!snapshot.metadata.fromCache) setCloudReady(true);
+        // Never upload an old backup when the server reports an empty collection.
+        // Pending local writes must not replace the last confirmed backup.
+        if (!snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites) {
+          try { localStorage.setItem(`portfolios_${user.uid}`, JSON.stringify(loaded)); }
+          catch { /* Cloud data is saved even if a redundant browser backup cannot be written. */ }
         }
-        handleFirestoreError(error, OperationType.LIST, 'portfolios');
+      }, error => {
+        if (cancelled) return;
+        setIsLoadingPortfolios(false);
+        setCloudReady(false);
+        setOperationMessage('雲端資料讀取失敗，請重新整理或重新登入。' + operationError(error));
       });
-
     };
     void subscribe();
     return () => { cancelled = true; unsubscribe(); };
   }, [user]);
 
-  const handleCreatePortfolioInDB = async (port: Portfolio) => {
+  useEffect(() => {
+    if (isLoadingPortfolios || (!user && !isGuest)) return;
+    if (user && !cloudReady) return;
+    if (activePortfolioId && !portfolios.some(p => p.id === activePortfolioId)) return;
     try {
-      await setDoc(doc(db, 'portfolios', port.id), port);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'portfolios/' + port.id);
+      const key = user ? `active_portfolio_id_${user.uid}` : 'active_portfolio_id_guest';
+      if (activePortfolioId) localStorage.setItem(key, activePortfolioId);
+      else localStorage.removeItem(key);
+    } catch { /* Selection preference does not affect saved holdings. */ }
+  }, [activePortfolioId, user, isGuest, isLoadingPortfolios, cloudReady, portfolios]);
+
+  const performMutation = async (label: string, work: () => Promise<void> | void) => {
+    if (operationInFlight.current) throw new Error('上一項操作尚未完成，請稍候。');
+    if (!isGuest && (!user || !db || !cloudReady)) throw new Error('雲端資料尚未就緒，請稍候或重新整理頁面。');
+    if (!isGuest && !navigator.onLine) throw new Error('目前離線，請恢復網路連線後重試。');
+    operationInFlight.current = true;
+    setPendingAction(label);
+    setOperationMessage('');
+    const timer = setTimeout(() => setOperationMessage(`${label}仍在等待雲端確認，請保持連線，勿重複送出。`), 8000);
+    try {
+      await work();
+      setOperationMessage('');
+    } catch (error) {
+      const message = `${label}失敗：${operationError(error)}`;
+      setOperationMessage(message);
+      throw new Error(message);
+    } finally {
+      clearTimeout(timer);
+      operationInFlight.current = false;
+      setPendingAction('');
     }
   };
 
-  const syncActivePortfolio = async (updated: Portfolio) => {
-    if (isGuest) {
-      const idx = portfolios.findIndex(p => p.id === updated.id);
-      if (idx !== -1) {
-        const copy = [...portfolios];
-        copy[idx] = { ...updated, updatedAt: Date.now() };
-        setPortfolios(copy);
-        localStorage.setItem('portfolios_guest', JSON.stringify(copy));
-      }
-      return;
-    }
-    // Firestore sync is non-blocking — optimistic update is already applied.
-    // Any Firestore error (network, config, permission) is caught silently.
-    // With persistentLocalCache, data is written to IndexedDB first and synced when online.
-    try {
-      await Promise.race([
-        setDoc(doc(db, 'portfolios', updated.id), { ...updated, updatedAt: Date.now() }, { merge: true }),
-        new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error('firestore_timeout')), 5000)
-        ),
-      ]);
-    } catch (err: any) {
-      // Always non-fatal — do NOT re-throw. UI update is already optimistically applied.
-      if (err?.message === 'firestore_timeout') {
-        console.warn('Firestore write timed out — data saved locally and will sync later.');
-      } else {
-        console.error('Firestore sync error (non-fatal):', err?.message || err);
-      }
-    }
+  const saveGuestPortfolios = (next: Portfolio[]) => {
+    localStorage.setItem('portfolios_guest', JSON.stringify(next));
+    setPortfolios(next);
+    setActivePortfolioId(previous => next.some(p => p.id === previous) ? previous : next[0]?.id || '');
   };
 
   useEffect(() => {
@@ -299,35 +250,24 @@ function App() {
   };
 
   const updateActivePortfolio = async (updater: (p: Portfolio) => Portfolio) => {
-    const current = portfolios.find(p => p.id === activePortfolioId) || portfolios[0];
-    if (current) {
-        const updated = updater(current);
-        const updatedWithTimestamp = { ...updated, updatedAt: Date.now() };
-        
-        // Optimistic UI update
-        const idx = portfolios.findIndex(p => p.id === updated.id);
-        const originalPortfolios = [...portfolios];
-        if (idx !== -1) {
-          const copy = [...portfolios];
-          copy[idx] = updatedWithTimestamp;
-
-          // Always persist to localStorage as backup (guest & logged-in users)
-          const storageKey = user ? `portfolios_${user.uid}` : 'portfolios_guest';
-          localStorage.setItem(storageKey, JSON.stringify(copy));
-          setPortfolios(copy);
-        }
-        
-        // Background sync to Firestore (non-blocking, only for logged-in users)
-        if (!isGuest) {
-          syncActivePortfolio(updatedWithTimestamp).catch(err => {
-            // Rollback on failure
-            console.error('Firestore sync failed (non-blocking):', err);
-            setPortfolios(originalPortfolios);
-          });
-        }
-    } else {
-        throw new Error("找不到作用中的投資組合");
-    }
+    const current = portfolios.find(p => p.id === activePortfolioId);
+    if (!current) throw new Error('找不到作用中的投資組合，請先新增或選取組合。');
+    await performMutation('儲存持倉', async () => {
+      if (isGuest) {
+        const updated = { ...updater(current), updatedAt: Date.now() };
+        saveGuestPortfolios(portfolios.map(p => p.id === updated.id ? updated : p));
+      } else {
+        // Read current holdings to avoid overwriting another device's changes.
+        const ref = doc(db, 'portfolios', current.id);
+        await runTransaction(db, async transaction => {
+          const snapshot = await transaction.get(ref);
+          if (!snapshot.exists()) throw new Error('此投資組合已被刪除，請重新整理。');
+          const latest = readPortfolioDocument(snapshot.id, snapshot.data());
+          const updated = updater(latest);
+          transaction.update(ref, { positions: updated.positions, closedPositions: updated.closedPositions, updatedAt: Date.now() });
+        });
+      }
+    });
   };
 
   const activePortfolio = portfolios.find(p => p.id === activePortfolioId) || portfolios[0];
@@ -386,70 +326,20 @@ function App() {
   };
 
   const handleRemovePosition = (id: string) => {
-    updateActivePortfolio(p => ({ ...p, positions: p.positions.filter(pos => pos.id !== id) }));
+    void updateActivePortfolio(p => ({ ...p, positions: p.positions.filter(pos => pos.id !== id) })).catch(error => setOperationMessage(operationError(error)));
   };
 
   const handleRemoveClosedPosition = (id: string) => {
-    updateActivePortfolio(p => ({ ...p, closedPositions: p.closedPositions.filter(pos => pos.id !== id) }));
+    void updateActivePortfolio(p => ({ ...p, closedPositions: p.closedPositions.filter(pos => pos.id !== id) })).catch(error => setOperationMessage(operationError(error)));
   };
 
   const handleSellPosition = async (sellDate: string, sellPrice: number, sellShares: number) => {
     if (!sellModalData) return;
     const { position } = sellModalData;
     
-    if (sellShares <= 0 || sellShares > position.shares) {
-      alert('無效的賣出股數');
-      return;
-    }
-
-    const partialSell = sellShares < position.shares;
-    const costForSoldShares = position.buyPrice * sellShares;
-    const realizedReturn = (sellPrice - position.buyPrice) * sellShares;
-    const realizedReturnPercent = costForSoldShares > 0 ? (realizedReturn / costForSoldShares) * 100 : 0;
-
-    const closedPos: ClosedPosition = {
-      ...position,
-      id: crypto.randomUUID(), // 使用新ID，以防多次部分平倉導致 ID 重複
-      shares: sellShares,
-      totalCost: costForSoldShares,
-      shortName: position.shortName || quotes[position.symbol]?.shortName,
-      sellDate,
-      sellPrice,
-      realizedReturn,
-      realizedReturnPercent,
-    };
-
-    try {
-      await updateActivePortfolio(p => {
-        let updatedPositions;
-        if (partialSell) {
-          updatedPositions = p.positions.map(pos => {
-            if (pos.id === position.id) {
-              const remainingShares = pos.shares - sellShares;
-              const remainingCost = pos.totalCost - costForSoldShares;
-              return {
-                ...pos,
-                shares: remainingShares,
-                totalCost: remainingCost,
-              };
-            }
-            return pos;
-          });
-        } else {
-          updatedPositions = p.positions.filter(pos => pos.id !== position.id);
-        }
-
-        return {
-          ...p,
-          positions: updatedPositions,
-          closedPositions: [closedPos, ...p.closedPositions],
-        };
-      });
-      setSellModalData(null);
-    } catch (err) {
-      console.error('Failed to sell position:', err);
-      throw err;
-    }
+    const saleId = crypto.randomUUID();
+    await updateActivePortfolio(p => sellPosition(p, position.id, saleId, sellDate, sellPrice, sellShares));
+    setSellModalData(null);
   };
 
   const handleCreatePortfolio = async (name: string) => {
@@ -465,38 +355,21 @@ function App() {
       sortOrder: maxOrder + 1
     };
 
-    if (isGuest) {
-      const updatedList = [...portfolios, newPort];
-      setPortfolios(updatedList);
-      localStorage.setItem('portfolios_guest', JSON.stringify(updatedList));
-      setActivePortfolioId(newPort.id);
-      setActiveTab('active');
-      return;
-    }
-
-    await handleCreatePortfolioInDB(newPort);
+    await performMutation('新增組合', async () => {
+      if (isGuest) saveGuestPortfolios([...portfolios, newPort]);
+      else await setDoc(doc(db, 'portfolios', newPort.id), newPort);
+    });
     setActivePortfolioId(newPort.id);
     setActiveTab('active');
   };
 
   const handleRenamePortfolio = async (newName: string) => {
-    if (isGuest && selectedRenamePortfolio) {
-      const updatedList = portfolios.map(p => 
-        p.id === selectedRenamePortfolio.id ? { ...p, name: newName, updatedAt: Date.now() } : p
-      );
-      setPortfolios(updatedList);
-      localStorage.setItem('portfolios_guest', JSON.stringify(updatedList));
-      setSelectedRenamePortfolio(null);
-      return;
-    }
-    if (!user || !selectedRenamePortfolio) return;
-    try {
-      const docRef = doc(db, 'portfolios', selectedRenamePortfolio.id);
-      await setDoc(docRef, { name: newName, updatedAt: Date.now() }, { merge: true });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, 'portfolios/' + selectedRenamePortfolio.id);
-    }
-    setSelectedRenamePortfolio(null);
+    if (!selectedRenamePortfolio) throw new Error('請重新選取要修改的組合。');
+    const id = selectedRenamePortfolio.id;
+    await performMutation('重新命名', async () => {
+      if (isGuest) saveGuestPortfolios(portfolios.map(p => p.id === id ? { ...p, name: newName, updatedAt: Date.now() } : p));
+      else await updateDoc(doc(db, 'portfolios', id), { name: newName, updatedAt: Date.now() });
+    });
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -530,32 +403,21 @@ function App() {
     const [removed] = updatedPortfolios.splice(oldIndex, 1);
     updatedPortfolios.splice(newIndex, 0, removed);
 
-    // Instant local feedback
-    setPortfolios(updatedPortfolios);
-
-    if (isGuest) {
-      const mapped = updatedPortfolios.map((p, idx) => ({ ...p, sortOrder: idx, updatedAt: Date.now() }));
-      setPortfolios(mapped);
-      localStorage.setItem('portfolios_guest', JSON.stringify(mapped));
-      setDraggedId(null);
-      return;
-    }
-
-    // Save batch on Firestore
-    const batch = writeBatch(db);
-    updatedPortfolios.forEach((p, idx) => {
-      const docRef = doc(db, 'portfolios', p.id);
-      batch.update(docRef, { sortOrder: idx, updatedAt: Date.now() });
-    });
-
+    const mapped = updatedPortfolios.map((p, idx) => ({ ...p, sortOrder: idx, updatedAt: Date.now() }));
     try {
-      await batch.commit();
-    } catch (err) {
-      console.error("Failed to update sortOrder batch write:", err);
-      handleFirestoreError(err, OperationType.UPDATE, 'portfolios_reorder');
+      await performMutation('調整排序', async () => {
+        if (isGuest) saveGuestPortfolios(mapped);
+        else {
+          const batch = writeBatch(db);
+          mapped.forEach(p => batch.update(doc(db, 'portfolios', p.id), { sortOrder: p.sortOrder, updatedAt: p.updatedAt }));
+          await batch.commit();
+        }
+      });
+    } catch (error) {
+      setOperationMessage(operationError(error));
+    } finally {
+      setDraggedId(null);
     }
-
-    setDraggedId(null);
   };
 
   const handleDragEnd = () => {
@@ -563,12 +425,26 @@ function App() {
     setDragOverId(null);
   };
 
-  const handleDeletePortfolio = async (id: string) => {
-    if (portfolios.length <= 1) return;
+  const handleDeletePortfolio = async () => {
+    if (!portfolioToDelete || operationInFlight.current) return;
+    setDeleteError('');
+    const id = portfolioToDelete.id;
     try {
-        await deleteDoc(doc(db, 'portfolios', id));
-    } catch(err) {
-        handleFirestoreError(err, OperationType.DELETE, 'portfolios/' + id);
+      if (portfolios.length <= 1) throw new Error('請至少保留一個投資組合。');
+      await performMutation('刪除組合', async () => {
+        if (isGuest) saveGuestPortfolios(portfolios.filter(p => p.id !== id));
+        else {
+          const ref = doc(db, 'portfolios', id);
+          await runTransaction(db, async transaction => {
+            const existing = await transaction.get(ref);
+            if (!existing.exists()) throw new Error('這個投資組合已不存在，請重新整理。');
+            transaction.delete(ref);
+          });
+        }
+      });
+      setPortfolioToDelete(null);
+    } catch (error) {
+      setDeleteError(operationError(error));
     }
   };
 
@@ -635,7 +511,7 @@ function App() {
              {user ? (
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-[#6B7280]">{user.email}</span>
-                  <button onClick={logout} className="p-2 rounded hover:bg-[#141417] text-[#6B7280] transition-colors" title="登出">
+                  <button onClick={logout} disabled={!!pendingAction} className="p-2 rounded hover:bg-[#141417] text-[#6B7280] transition-colors" title="登出">
                     <LogOut size={18} />
                   </button>
                 </div>
@@ -662,6 +538,11 @@ function App() {
              )}
           </div>
         </header>
+
+        {pendingAction && <p role="status" className="mb-4 text-sm text-[#C5A059]">{pendingAction}中…</p>}
+        {operationMessage && <p role="alert" className="mb-4 text-sm text-red-300">{operationMessage}</p>}
+        {isLoadingPortfolios && <p role="status" className="mb-4 text-sm">載入投資組合中…</p>}
+        {user && !isLoadingPortfolios && portfolios.length === 0 && <p className="mb-4 text-sm">尚無投資組合，請按「＋ 組合」新增。</p>}
 
         {loginError && (
           <div className="mb-6 p-4 rounded bg-[#2D1616] border border-[#7A2B2B] text-[#FF9E9E] flex flex-col md:flex-row gap-2 justify-between items-start md:items-center text-sm">
@@ -742,6 +623,7 @@ function App() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        setDeleteError('');
                         setPortfolioToDelete({ id: p.id, name: p.name });
                       }}
                       className="text-[#6B7280] hover:text-red-500 transition-colors p-0.5 rounded hover:bg-[#1C1C1F]"
@@ -755,6 +637,7 @@ function App() {
             </div>
           ))}
           <button 
+            disabled={!!pendingAction || isLoadingPortfolios}
             onClick={() => setIsPortfolioModalOpen(true)} 
             className="px-3 py-1.5 rounded border border-dashed border-[#333333] text-[#6B7280] hover:text-[#E5E7EB] text-sm flex-shrink-0 flex items-center gap-1 transition-colors"
           >
@@ -783,7 +666,7 @@ function App() {
               {portfolioSummaries.map(p => (
                  <div 
                    key={p.id} 
-                   draggable={true}
+                   draggable={!pendingAction}
                    onDragStart={(e) => handleDragStart(e, p.id)}
                    onDragOver={(e) => handleDragOver(e, p.id)}
                    onDragLeave={handleDragLeave}
@@ -868,6 +751,7 @@ function App() {
                     <RefreshCw size={18} className={cn(isRefreshing && "animate-spin")} />
                   </button>
                   <button 
+                    disabled={!activePortfolio || !!pendingAction}
                     onClick={() => setIsModalOpen(true)}
                     className="flex items-center justify-center gap-2 action-btn shadow-sm py-2 px-4 text-sm"
                   >
@@ -965,6 +849,7 @@ function App() {
                       開始新增您的第一筆模擬倉部位，輸入台股代號、股數與買進日期來觀察歷史投資報酬率。
                     </p>
                     <button 
+                      disabled={!activePortfolio || !!pendingAction}
                       onClick={() => setIsModalOpen(true)}
                       className="gold-text hover:opacity-80 transition-colors inline-flex items-center gap-2 uppercase tracking-wider text-sm font-medium border border-[#C5A059]/30 rounded px-4 py-2"
                     >
@@ -1052,42 +937,21 @@ function App() {
               <p className="text-sm text-[#8E9096] leading-relaxed">
                 確定要刪除「<span className="text-[#C5A059] font-medium">{portfolioToDelete.name}</span>」嗎？此動作將會永久清除本組合之所有持倉與歷史平倉交易紀錄，且無法復原。
               </p>
+              {deleteError && <p role="alert" className="text-sm text-red-300">{deleteError}</p>}
               <div className="flex gap-3 pt-2">
                 <button 
                   onClick={() => setPortfolioToDelete(null)}
+                  disabled={!!pendingAction}
                   className="w-1/2 px-4 py-2.5 rounded bg-neutral-900 border border-neutral-800 text-[#6B7280] hover:text-[#E5E7EB] transition-colors text-sm font-medium"
                 >
                   取消
                 </button>
                 <button 
-                  onClick={async () => {
-                    const id = portfolioToDelete.id;
-                    setPortfolioToDelete(null);
-                    if (portfolios.length <= 1) return;
-                    
-                    if (activePortfolioId === id) {
-                      const other = portfolios.find(p => p.id !== id);
-                      if (other) {
-                        setActivePortfolioId(other.id);
-                      }
-                    }
-
-                    if (isGuest) {
-                      const updatedList = portfolios.filter(p => p.id !== id);
-                      setPortfolios(updatedList);
-                      localStorage.setItem('portfolios_guest', JSON.stringify(updatedList));
-                      return;
-                    }
-
-                    try {
-                      await deleteDoc(doc(db, 'portfolios', id));
-                    } catch (err) {
-                      handleFirestoreError(err, OperationType.DELETE, 'portfolios/' + id);
-                    }
-                  }}
+                  onClick={handleDeletePortfolio}
+                  disabled={!!pendingAction}
                   className="w-1/2 px-4 py-2.5 rounded bg-red-950/40 text-red-200 border border-red-900/60 hover:bg-red-920 transition-colors text-sm font-medium"
                 >
-                  確認刪除
+                  {pendingAction === '刪除組合' ? '刪除中…' : '確認刪除'}
                 </button>
               </div>
             </div>

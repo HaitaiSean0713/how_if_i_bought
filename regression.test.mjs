@@ -9,6 +9,29 @@ async function loadTypeScript(path) {
 }
 const {selectHistoricalQuote,validHistoricalDate,historicalRange}=await loadTypeScript('./src/lib/historical.ts');
 const {migrateGuestPortfolios}=await loadTypeScript('./src/lib/guestMigration.ts');
+const {readPortfolioDocument,sellPosition,operationError}=await loadTypeScript('./src/lib/portfolioOperations.ts');
+test('Legacy embedded ID never changes the Firestore document targeted by an operation',()=>{
+ const portfolio=readPortfolioDocument('actual-document',{id:'obsolete-id',name:'A'});
+ assert.equal(portfolio.id,'actual-document');
+ assert.deepEqual(portfolio.positions,[]);
+ assert.deepEqual(portfolio.closedPositions,[]);
+});
+test('A sale uses latest holdings and rejects a stale oversell or deleted position',()=>{
+ const portfolio={id:'a',name:'A',positions:[{id:'lot',symbol:'2330.TW',shares:600,buyPrice:100,totalCost:60000,buyDate:'2026-09-18'}],closedPositions:[]};
+ assert.throws(()=>sellPosition(portfolio,'lot','sale','2026-09-21',150,1000),/持股數/);
+ assert.throws(()=>sellPosition(portfolio,'missing','sale','2026-09-21',150,100),/不存在/);
+ const sold=sellPosition(portfolio,'lot','sale','2026-09-21',150,400);
+ assert.equal(sold.positions[0].shares,200);
+ assert.equal(sold.positions[0].totalCost,20000);
+ assert.equal(sold.closedPositions[0].realizedReturn,20000);
+ assert.equal(portfolio.positions[0].shares,600);
+ assert.equal(sellPosition(portfolio,'lot','sale','2026-09-21',150,600).positions.length,0);
+});
+test('Cloud permission, missing document and storage failures produce actionable messages',()=>{
+ assert.match(operationError({code:'permission-denied'}),/權限/);
+ assert.match(operationError({code:'not-found'}),/不存在/);
+ assert.match(operationError(Object.assign(new Error(),{name:'QuotaExceededError'})),/儲存空間不足/);
+});
 test('Historical request range includes the requested day across month boundaries',()=>{
  assert.deepEqual(historicalRange('2026-03-01'),{period1:'2026-02-15',period2:'2026-03-02'});
 });

@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { preview } from 'vite';
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const server = await preview({ configFile: false, preview: { port: 4179, strictPort: true } });
+const browser = await chromium.launch({ headless: true, channel: process.env.BROWSER_CHANNEL || 'chrome' });
+try {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('http://localhost:4179');
+  await page.getByRole('button', { name: /訪客身份/ }).click();
+  await page.getByRole('button', { name: '組合', exact: true }).click();
+  await page.locator('input[type=text]').fill('訪客乙');
+  await page.getByRole('button', { name: '確認', exact: true }).click();
+  await page.getByRole('heading', { name: '新增投資組合', exact: true }).waitFor({ state: 'hidden' });
+  await page.getByTitle('修改組合名稱').click();
+  await page.locator('input[type=text]').fill('訪客更名');
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    window.blockStorage = true;
+    Storage.prototype.setItem = function(key, value) {
+      if (key === 'portfolios_guest' && window.blockStorage) throw new DOMException('full', 'QuotaExceededError');
+      return original.call(this, key, value);
+    };
+  });
+  await page.getByRole('button', { name: '確認', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '儲存空間不足' }).last().waitFor();
+  assert.equal(await page.getByRole('button', { name: '訪客乙', exact: true }).count(), 1);
+  await page.evaluate(() => { window.blockStorage = false; });
+  await page.getByRole('button', { name: '確認', exact: true }).click();
+  await page.getByRole('heading', { name: '重新命名組合', exact: true }).waitFor({ state: 'hidden' });
+  await page.reload();
+  await page.getByRole('button', { name: '訪客更名', exact: true }).waitFor();
+  const selected = await page.evaluate(() => localStorage.getItem('active_portfolio_id_guest'));
+  const data = await page.evaluate(() => JSON.parse(localStorage.getItem('portfolios_guest')));
+  assert.equal(data.find(p => p.id === selected).name, '訪客更名');
+  await page.getByRole('button', { name: '橫向比較', exact: true }).click();
+  const cards = page.locator('[draggable=true]');
+  await cards.nth(1).dragTo(cards.nth(0));
+  await page.reload();
+  await page.getByRole('button', { name: '橫向比較', exact: true }).click();
+  assert.equal(await cards.first().locator('h3').innerText(), '訪客更名');
+  await page.getByRole('button', { name: '訪客更名', exact: true }).click();
+  await page.getByTitle('刪除組合', { exact: true }).click();
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: '訪客更名', exact: true }).count(), 1);
+  await page.getByTitle('刪除組合', { exact: true }).click();
+  await page.getByRole('button', { name: '確認刪除', exact: true }).click();
+  await page.getByRole('heading', { name: '確認刪除投資組合？' }).waitFor({ state: 'hidden' });
+  await page.reload();
+  await page.getByRole('button', { name: '預設組合', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: '訪客更名', exact: true }).count(), 0);
+  assert.equal(await page.getByTitle('刪除組合', { exact: true }).count(), 0);
+  assert.deepEqual(errors, []);
+  console.log('PASS guest create, rename, storage failure/retry, selection, sorting, cancellation, delete/reload and last-portfolio guard');
+} finally {
+  await browser.close();
+  await new Promise(resolve => server.httpServer.close(resolve));
+}

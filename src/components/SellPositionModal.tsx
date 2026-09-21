@@ -75,7 +75,7 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) {
+        if (!isLoading && e.target === e.currentTarget) {
           onClose();
         }
       }}
@@ -83,7 +83,7 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
       <div className="card-bg rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex justify-between items-center p-6 border-b border-[#222226]">
           <h2 className="text-xl serif gold-text">平倉 (賣出)</h2>
-          <button onClick={onClose} className="text-[#6B7280] hover:text-[#E5E7EB] transition-colors">
+          <button onClick={onClose} disabled={isLoading} aria-label="關閉" className="text-[#6B7280] hover:text-[#E5E7EB] transition-colors">
             <X size={24} />
           </button>
         </div>
