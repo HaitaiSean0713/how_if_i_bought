@@ -21,6 +21,8 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
 
   useEffect(() => {
     if (isOpen) {
+      setError('');
+      setSellDate(format(new Date(), 'yyyy-MM-dd'));
       if (currentPrice) {
         setSellPrice(currentPrice.toString());
       } else {
@@ -39,14 +41,17 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sellDate || !sellPrice || !sellShares) return;
+    if (isLoading || !sellDate || !sellPrice || !sellShares) return;
 
     setIsLoading(true);
     setError('');
 
     try {
+      if (sellDate < position.buyDate || sellDate > format(new Date(), 'yyyy-MM-dd')) {
+        throw new Error('賣出日期不得早於買進日期或晚於今天');
+      }
       const parsedPrice = parseFloat(sellPrice);
-      if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
         throw new Error('請輸入有效的賣出價格');
       }
 
@@ -132,6 +137,7 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
             <input
               type="date"
               value={sellDate}
+              min={position.buyDate}
               onChange={(e) => setSellDate(e.target.value)}
               max={format(new Date(), 'yyyy-MM-dd')}
               className="input-field transition-colors focus:border-[#C5A059] outline-none [color-scheme:dark]"

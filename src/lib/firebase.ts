@@ -16,13 +16,15 @@ const firebaseConfig = {
   firestoreDatabaseId: metaEnv.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (isCustomProject ? '(default)' : localFirebaseConfig.firestoreDatabaseId),
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = initializeFirestore(app, { localCache: persistentLocalCache(), ignoreUndefinedProperties: true }, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+export const isFirebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);
+const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+export const db = app ? initializeFirestore(app, { localCache: persistentLocalCache(), ignoreUndefinedProperties: true }, firebaseConfig.firestoreDatabaseId || '(default)') : null;
+export const auth = app ? getAuth(app) : null;
 
 export const googleProvider = new GoogleAuthProvider();
 
 export const loginWithGoogle = async () => {
+  if (!auth) throw new Error('尚未設定雲端登入，請先使用訪客模式。');
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result;
@@ -34,6 +36,7 @@ export const loginWithGoogle = async () => {
 
 
 export const logout = async () => {
+  if (!auth) return;
   try {
     await signOut(auth);
   } catch (error) {
@@ -42,6 +45,7 @@ export const logout = async () => {
 };
 
 export async function testConnection() {
+  if (!db) return;
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
@@ -50,4 +54,3 @@ export async function testConnection() {
     }
   }
 }
-testConnection();

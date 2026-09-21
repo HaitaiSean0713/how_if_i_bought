@@ -1,9 +1,9 @@
+import { selectHistoricalQuote, validHistoricalDate, historicalRange } from './src/lib/historical';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import YahooFinance from 'yahoo-finance2';
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
-import { format, subDays, isWeekend, isAfter } from 'date-fns';
 
 async function startServer() {
   const app = express();
@@ -121,17 +121,11 @@ async function startServer() {
       const symbol = req.params.symbol.toUpperCase();
       const dateStr = req.params.date;
       
-      if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        return res.status(400).json({ error: '日期格式不正確，請使用 YYYY-MM-DD' });
+      if (!validHistoricalDate(dateStr)) {
+        return res.status(400).json({ error: '請使用有效且不晚於今天的日期 (YYYY-MM-DD)' });
       }
       
-      const parts = dateStr.split('-');
-      const localDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-
-      const queryOptions = {
-        period1: format(subDays(localDate, 14), 'yyyy-MM-dd'),
-        period2: format(new Date(localDate.getTime() + 86400000), 'yyyy-MM-dd')
-      };
+      const queryOptions = historicalRange(dateStr);
       
       // Use chart() instead of deprecated historical()
       const { result, resolvedSymbol } = await resolveSymbol(symbol, async (sym) => {
@@ -148,40 +142,13 @@ async function startServer() {
         return res.status(404).json({ error: "找不到該日期的歷史股價" });
       }
       
-      // Filter out quotes with null close unless it's our only choice
-      const validQuotes = result.filter((q: any) => q.close != null);
-      const dataToSearch = validQuotes.length > 0 ? validQuotes : result;
-      
-      // Get the closest date <= requested date (compare Taiwan date strings to avoid timezone mismatch)
-      const sorted = [...dataToSearch].sort((a: any, b: any) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      const closest = sorted.find((d: any) => toTWDateStr(d.date) <= dateStr);
-      const finalData = { ...(closest || dataToSearch[dataToSearch.length - 1]), actualSymbol: resolvedSymbol, shortName: symbol };
+      const closest = selectHistoricalQuote(result, dateStr);
+      if (!closest) return res.status(404).json({ error: '找不到該日期或之前的有效歷史股價' });
+      const finalData = { ...closest, actualSymbol: resolvedSymbol, shortName: symbol };
       
       try {
         const quoteRes = await withTimeout(yahooFinance.quote(resolvedSymbol, { lang: 'zh-Hant', region: 'TW' }), 4000);
         enrichWithChineseName(finalData, quoteRes);
-        
-        const now = new Date();
-        const taiwanTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-        const taiwanDateStr = taiwanTime.toISOString().split('T')[0];
-        const isToday = dateStr === taiwanDateStr;
-        console.log(`[API Debug] Requested Date: ${dateStr}, Taiwan Today: ${taiwanDateStr}, isToday: ${isToday}`);
-        if (isToday) {
-          const taiwanHour = taiwanTime.getUTCHours();
-          const isBeforeOpen = taiwanHour < 9;
-          console.log(`[API Debug] Taiwan Hour: ${taiwanHour}, isBeforeOpen: ${isBeforeOpen}`);
-          console.log(`[API Debug] quoteRes regularMarketPrice: ${quoteRes?.regularMarketPrice}, previousClose: ${quoteRes?.regularMarketPreviousClose}`);
-          if (isBeforeOpen) {
-            finalData.close = quoteRes.regularMarketPreviousClose || finalData.close;
-          } else {
-            finalData.close = quoteRes.regularMarketPrice || finalData.close;
-          }
-        } else if (finalData.close == null && quoteRes.regularMarketPrice) {
-          finalData.close = quoteRes.regularMarketPrice;
-        }
-        console.log(`[API Debug] Final returned price for ${symbol} (${resolvedSymbol}): ${finalData.close}`);
       } catch (e: any) {
         console.log(`[API Debug] Quote fetch error: ${e.message}`);
       }

@@ -20,21 +20,15 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!symbol || !shares || !buyDate) return;
+    if (isLoading || !symbol || !shares || !buyDate) return;
 
     setIsLoading(true);
     setError('');
 
-    // 最終保險：無論如何，10 秒後強制解除 loading 狀態
-    const safetyTimer = setTimeout(() => {
-      setIsLoading(false);
-      setError('操作逾時，請重試');
-    }, 10000);
-
     try {
       // Input Validation
-      const parsedShares = parseInt(shares);
-      if (isNaN(parsedShares) || parsedShares <= 0) {
+      const parsedShares = Number(shares);
+      if (!Number.isSafeInteger(parsedShares) || parsedShares <= 0) {
         throw new Error('請輸入有效的股數 (例如: 1000代表一張)');
       }
 
@@ -63,18 +57,16 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
 
       const historicalData = await response.json();
       
-      if (!historicalData || !historicalData.close) {
+      if (!historicalData || !Number.isFinite(historicalData.close) || historicalData.close <= 0) {
           throw new Error('找不到歷史股價，請確認日期是否為交易日或代碼是否正確。');
       }
 
-      onAdd({
+      await onAdd({
         symbol: historicalData.actualSymbol || symbol.toUpperCase(),
         shortName: historicalData.shortName,
         shares: parsedShares,
         buyDate,
         buyPrice: historicalData.close,
-      }).catch((err: any) => {
-        console.error('Error adding position:', err);
       });
 
       // Reset and close immediately
@@ -85,7 +77,6 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
     } catch (err: any) {
       setError(err.message || '新增失敗');
     } finally {
-      clearTimeout(safetyTimer);
       setIsLoading(false);
     }
   };
@@ -94,7 +85,7 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) {
+        if (!isLoading && e.target === e.currentTarget) {
           onClose();
         }
       }}
@@ -102,7 +93,7 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
       <div className="card-bg rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex justify-between items-center p-6 border-b border-[#222226]">
           <h2 className="text-xl serif gold-text">新增持倉</h2>
-          <button onClick={onClose} className="text-[#6B7280] hover:text-[#E5E7EB] transition-colors">
+          <button onClick={onClose} disabled={isLoading} className="text-[#6B7280] hover:text-[#E5E7EB] transition-colors">
             <X size={24} />
           </button>
         </div>

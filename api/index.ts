@@ -1,7 +1,7 @@
+import { selectHistoricalQuote, validHistoricalDate, historicalRange } from '../src/lib/historical';
 import express from "express";
 import YahooFinance from 'yahoo-finance2';
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
-import { format, subDays } from 'date-fns';
 
 const app = express();
 app.use(express.json());
@@ -116,14 +116,11 @@ app.get("/api/historical/:symbol/:date", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     const dateStr = req.params.date;
     
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return res.status(400).json({ error: '日期格式不正確，請使用 YYYY-MM-DD' });
+    if (!validHistoricalDate(dateStr)) {
+      return res.status(400).json({ error: '請使用有效且不晚於今天的日期 (YYYY-MM-DD)' });
     }
     
-    const queryOptions = {
-      period1: format(subDays(new Date(dateStr), 14), 'yyyy-MM-dd'),
-      period2: format(new Date(new Date(dateStr).getTime() + 86400000), 'yyyy-MM-dd')
-    };
+    const queryOptions = historicalRange(dateStr);
     
     // Use chart() instead of deprecated historical()
     // Each attempt gets 3s timeout to stay within Vercel's 10s limit
@@ -142,35 +139,16 @@ app.get("/api/historical/:symbol/:date", async (req, res) => {
       return res.status(404).json({ error: "找不到該日期的歷史股價" });
     }
     
-    // Get the closest date <= requested date (compare Taiwan date strings to avoid timezone mismatch)
-    const sorted = [...result].sort((a: any, b: any) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    const closest = sorted.find((d: any) => toTWDateStr(d.date) <= dateStr);
-    const finalData = { ...(closest || result[result.length - 1]), actualSymbol: resolvedSymbol, shortName: symbol };
+    const closest = selectHistoricalQuote(result, dateStr);
+    if (!closest) return res.status(404).json({ error: '找不到該日期或之前的有效歷史股價' });
+    const finalData = { ...closest, actualSymbol: resolvedSymbol, shortName: symbol };
     
-    // Try to get Chinese name and today's dynamic price
+    // Name lookup must not change the historical price.
     try {
       const quoteRes = await withTimeout(yahooFinance.quote(resolvedSymbol, { lang: 'zh-Hant', region: 'TW' }), 3000);
       enrichWithChineseName(finalData, quoteRes);
       
-      const now = new Date();
-      const taiwanTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-      const taiwanDateStr = taiwanTime.toISOString().split('T')[0];
-      const isToday = dateStr === taiwanDateStr;
-      
-      if (isToday) {
-        const taiwanHour = taiwanTime.getUTCHours();
-        const isBeforeOpen = taiwanHour < 9;
-        if (isBeforeOpen) {
-          finalData.close = quoteRes.regularMarketPreviousClose || finalData.close;
-        } else {
-          finalData.close = quoteRes.regularMarketPrice || finalData.close;
-        }
-      } else if (finalData.close == null && quoteRes.regularMarketPrice) {
-        finalData.close = quoteRes.regularMarketPrice;
-      }
-    } catch (e) {
+      } catch (e) {
       // Name lookup failed, use symbol as fallback
     }
     

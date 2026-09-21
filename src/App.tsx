@@ -9,7 +9,8 @@ import { ClosedPositionCard } from './components/ClosedPositionCard';
 import { PortfolioModal } from './components/PortfolioModal';
 import { auth, db, loginWithGoogle, logout } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, writeBatch, runTransaction } from 'firebase/firestore';
+import { migrateGuestPortfolios } from './lib/guestMigration';
 import { handleFirestoreError, OperationType } from './lib/firebaseErrors';
 
 function App() {
@@ -58,6 +59,10 @@ function App() {
   };
 
   useEffect(() => {
+    if (!auth) {
+      setIsLoadingPortfolios(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
@@ -98,7 +103,7 @@ function App() {
         if (savedActiveId && parsed.some(p => p.id === savedActiveId)) {
           setActivePortfolioId(savedActiveId);
         } else {
-          setActivePortfolioId(parsed[0].id);
+          setActivePortfolioId(parsed[0]?.id || '');
         }
       } else {
         const defaultPort: Portfolio = {
@@ -123,79 +128,99 @@ function App() {
   useEffect(() => {
     if (!user) return;
     setIsLoadingPortfolios(true);
-    const q = query(collection(db, 'portfolios'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const loadedPortfolios: Portfolio[] = [];
-      snapshot.forEach(doc => {
-        loadedPortfolios.push(doc.data() as Portfolio);
-      });
-      // Optionally fallback if empty
-      if (loadedPortfolios.length === 0) {
-        // Check localStorage backup before creating a new default portfolio
+    let cancelled = false;
+    let unsubscribe = () => {};
+    const subscribe = async () => {
+      try {
+        await migrateGuestPortfolios(localStorage, user.uid, async portfolio => {
+          const ref = doc(db, 'portfolios', portfolio.id);
+          await runTransaction(db, async transaction => {
+            const existing = await transaction.get(ref);
+            if (!existing.exists()) transaction.set(ref, portfolio);
+          });
+        });
+      } catch (error) {
+        console.error('Guest migration failed:', error);
+        if (!cancelled) setLoginError('訪客資料尚未完成移轉，本地資料已保留。請確認連線後重新登入以重試。');
+      }
+      if (cancelled) return;
+      const q = query(collection(db, 'portfolios'), where('userId', '==', user.uid));
+      unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+        // An empty cache is not proof that the account has no cloud data.
+        if (snapshot.empty && snapshot.metadata.fromCache) return;
+        const loadedPortfolios: Portfolio[] = [];
+        snapshot.forEach(doc => {
+          loadedPortfolios.push(doc.data() as Portfolio);
+        });
+        // Optionally fallback if empty
+        if (loadedPortfolios.length === 0) {
+          // Check localStorage backup before creating a new default portfolio
+          const backupKey = `portfolios_${user.uid}`;
+          const backup = localStorage.getItem(backupKey);
+          if (backup) {
+            try {
+              const parsed = JSON.parse(backup) as Portfolio[];
+              if (parsed && parsed.length > 0) {
+                console.log('Restoring portfolios from localStorage backup');
+                setPortfolios(parsed);
+                setActivePortfolioId(parsed[0].id);
+                // Re-sync backup data to Firestore
+                parsed.forEach(p => handleCreatePortfolioInDB({ ...p, userId: user.uid }));
+                setIsLoadingPortfolios(false);
+                return;
+              }
+            } catch (e) {
+              console.error('Failed to parse localStorage backup:', e);
+            }
+          }
+
+          const defaultPort: Portfolio = {
+            id: crypto.randomUUID(),
+            name: '預設組合',
+            positions: [],
+            closedPositions: [],
+            userId: user.uid,
+            createdAt: Date.now(),
+            sortOrder: 0
+          };
+          setPortfolios([defaultPort]);
+          setActivePortfolioId(defaultPort.id);
+          handleCreatePortfolioInDB(defaultPort);
+        } else {
+          // Sort portfolios: prioritize sortOrder, fallback to createdAt or 0
+          loadedPortfolios.sort((a, b) => {
+            const orderA = a.sortOrder !== undefined ? a.sortOrder : (a.createdAt || 0);
+            const orderB = b.sortOrder !== undefined ? b.sortOrder : (b.createdAt || 0);
+            return orderA - orderB;
+          });
+          setPortfolios(loadedPortfolios);
+          setActivePortfolioId(prev => loadedPortfolios.some(p => p.id === prev) ? prev : loadedPortfolios[0].id);
+          // Update localStorage backup with latest Firestore data
+          localStorage.setItem(`portfolios_${user.uid}`, JSON.stringify(loadedPortfolios));
+        }
+        setIsLoadingPortfolios(false);
+      }, (error) => {
+        setIsLoadingPortfolios(false);
+        // On Firestore error, try restoring from localStorage backup
         const backupKey = `portfolios_${user.uid}`;
         const backup = localStorage.getItem(backupKey);
         if (backup) {
           try {
             const parsed = JSON.parse(backup) as Portfolio[];
             if (parsed && parsed.length > 0) {
-              console.log('Restoring portfolios from localStorage backup');
+              console.log('Firestore error, restoring from localStorage backup');
               setPortfolios(parsed);
               setActivePortfolioId(parsed[0].id);
-              // Re-sync backup data to Firestore
-              parsed.forEach(p => handleCreatePortfolioInDB({ ...p, userId: user.uid }));
-              setIsLoadingPortfolios(false);
               return;
             }
-          } catch (e) {
-            console.error('Failed to parse localStorage backup:', e);
-          }
+          } catch (e) { /* ignore */ }
         }
+        handleFirestoreError(error, OperationType.LIST, 'portfolios');
+      });
 
-        const defaultPort: Portfolio = {
-          id: crypto.randomUUID(),
-          name: '預設組合',
-          positions: [],
-          closedPositions: [],
-          userId: user.uid,
-          createdAt: Date.now(),
-          sortOrder: 0
-        };
-        setPortfolios([defaultPort]);
-        setActivePortfolioId(defaultPort.id);
-        handleCreatePortfolioInDB(defaultPort);
-      } else {
-        // Sort portfolios: prioritize sortOrder, fallback to createdAt or 0
-        loadedPortfolios.sort((a, b) => {
-          const orderA = a.sortOrder !== undefined ? a.sortOrder : (a.createdAt || 0);
-          const orderB = b.sortOrder !== undefined ? b.sortOrder : (b.createdAt || 0);
-          return orderA - orderB;
-        });
-        setPortfolios(loadedPortfolios);
-        setActivePortfolioId(prev => loadedPortfolios.some(p => p.id === prev) ? prev : loadedPortfolios[0].id);
-        // Update localStorage backup with latest Firestore data
-        localStorage.setItem(`portfolios_${user.uid}`, JSON.stringify(loadedPortfolios));
-      }
-      setIsLoadingPortfolios(false);
-    }, (error) => {
-      setIsLoadingPortfolios(false);
-      // On Firestore error, try restoring from localStorage backup
-      const backupKey = `portfolios_${user.uid}`;
-      const backup = localStorage.getItem(backupKey);
-      if (backup) {
-        try {
-          const parsed = JSON.parse(backup) as Portfolio[];
-          if (parsed && parsed.length > 0) {
-            console.log('Firestore error, restoring from localStorage backup');
-            setPortfolios(parsed);
-            setActivePortfolioId(parsed[0].id);
-            return;
-          }
-        } catch (e) { /* ignore */ }
-      }
-      handleFirestoreError(error, OperationType.LIST, 'portfolios');
-    });
-
-    return () => unsubscribe();
+    };
+    void subscribe();
+    return () => { cancelled = true; unsubscribe(); };
   }, [user]);
 
   const handleCreatePortfolioInDB = async (port: Portfolio) => {
@@ -285,11 +310,11 @@ function App() {
         if (idx !== -1) {
           const copy = [...portfolios];
           copy[idx] = updatedWithTimestamp;
-          setPortfolios(copy);
 
           // Always persist to localStorage as backup (guest & logged-in users)
           const storageKey = user ? `portfolios_${user.uid}` : 'portfolios_guest';
           localStorage.setItem(storageKey, JSON.stringify(copy));
+          setPortfolios(copy);
         }
         
         // Background sync to Firestore (non-blocking, only for logged-in users)
@@ -423,7 +448,7 @@ function App() {
       setSellModalData(null);
     } catch (err) {
       console.error('Failed to sell position:', err);
-      alert('平倉失敗，請重試！');
+      throw err;
     }
   };
 
