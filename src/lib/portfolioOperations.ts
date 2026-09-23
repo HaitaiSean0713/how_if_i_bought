@@ -38,7 +38,9 @@ export function calculateGroupSummary(
   }
 
   const totalReturnPercent = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0;
-  const initialCapital = foundCapital !== undefined ? foundCapital : undefined;
+  const perPortfolioCapital = foundCapital !== undefined ? foundCapital : undefined;
+  // Group total capital is the sum of all member portfolios' individual quotas
+  const initialCapital = perPortfolioCapital !== undefined ? perPortfolioCapital * memberPortfolios.length : undefined;
   const remainingCash = initialCapital !== undefined ? initialCapital - totalCost : undefined;
   const totalNetWorth = remainingCash !== undefined ? remainingCash + totalValue : totalValue;
   const returnOnCapital = totalReturn;
@@ -48,6 +50,7 @@ export function calculateGroupSummary(
 
   return {
     groupName,
+    perPortfolioCapital,
     initialCapital,
     portfolios: memberPortfolios,
     totalCost,
@@ -58,6 +61,26 @@ export function calculateGroupSummary(
     totalNetWorth,
     returnOnCapital,
     returnOnCapitalPercent,
+  };
+}
+
+export function checkPortfolioQuota(portfolio: Portfolio, addedCost: number) {
+  if (typeof portfolio.groupInitialCapital !== 'number' || portfolio.groupInitialCapital <= 0) {
+    return null;
+  }
+  const currentCost = portfolio.positions.reduce((sum, p) => sum + p.totalCost, 0);
+  const projectedCost = currentCost + addedCost;
+  const quota = portfolio.groupInitialCapital;
+  const remaining = quota - currentCost;
+  const allowed = projectedCost <= quota;
+  const excess = allowed ? 0 : projectedCost - quota;
+  return {
+    allowed,
+    quota,
+    currentCost,
+    projectedCost,
+    remaining,
+    excess,
   };
 }
 

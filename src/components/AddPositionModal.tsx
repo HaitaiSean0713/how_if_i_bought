@@ -8,14 +8,26 @@ interface AddPositionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (position: Omit<import('../types').Position, 'id' | 'totalCost'>) => Promise<void>;
+  remainingCapital?: number;
+  initialCapital?: number;
+  currentCost?: number;
 }
 
-export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalProps) {
+export function AddPositionModal({ 
+  isOpen, 
+  onClose, 
+  onAdd,
+  remainingCapital,
+  initialCapital,
+  currentCost = 0,
+}: AddPositionModalProps) {
   const [symbol, setSymbol] = useState('');
   const [shares, setShares] = useState('');
   const [buyDate, setBuyDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const isQuotaDepleted = remainingCapital !== undefined && remainingCapital <= 0;
 
   if (!isOpen) return null;
 
@@ -66,6 +78,12 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
           throw new Error('找不到歷史股價，請確認日期是否為交易日或代碼是否正確。');
       }
 
+      const estimatedCost = historicalData.close * parsedShares;
+      if (remainingCapital !== undefined && estimatedCost > remainingCapital) {
+        const excess = estimatedCost - remainingCapital;
+        throw new Error(`買進金額 NT$ ${Math.round(estimatedCost).toLocaleString()} 超過該組合剩餘可用額度 (NT$ ${Math.max(0, Math.round(remainingCapital)).toLocaleString()})，超出 NT$ ${Math.round(excess).toLocaleString()}，已禁止買入！`);
+      }
+
       await onAdd({
         symbol: historicalData.actualSymbol || querySymbol,
         shortName: resolved?.shortName || historicalData.shortName,
@@ -110,6 +128,35 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {initialCapital !== undefined && (
+            <div className={cn(
+              "p-3.5 rounded-2xl border text-xs space-y-1.5",
+              isQuotaDepleted 
+                ? "bg-rose-950/40 border-rose-500/40 text-rose-200" 
+                : "bg-indigo-950/30 border-indigo-500/30 text-indigo-200"
+            )}>
+              <div className="flex items-center justify-between font-medium">
+                <span className="text-white/80">本組合資金額度：</span>
+                <span className="font-mono text-white font-semibold">NT$ {initialCapital.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#8E8E93]">已動用成本：</span>
+                <span className="font-mono text-[#E5E7EB]">NT$ {currentCost.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between font-medium pt-0.5 border-t border-white/10">
+                <span className={isQuotaDepleted ? "text-rose-400" : "text-emerald-400"}>剩餘可用額度：</span>
+                <span className={cn("font-mono font-bold", isQuotaDepleted ? "text-rose-400" : "text-emerald-400")}>
+                  NT$ {Math.max(0, remainingCapital ?? 0).toLocaleString()}
+                </span>
+              </div>
+              {isQuotaDepleted && (
+                <p className="text-[11px] text-rose-300 font-medium pt-1">
+                  ⚠️ 本組合專屬資金已達上限，禁止繼續買入股票。
+                </p>
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="p-3 bg-rose-950/40 text-rose-300 text-xs rounded-2xl border border-rose-900/60 leading-relaxed">
               {error}
@@ -160,13 +207,13 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
             <motion.button
               whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isQuotaDepleted}
               className={cn(
                 "action-btn w-full py-3 text-sm font-semibold shadow-lg",
-                isLoading && "opacity-50 cursor-not-allowed"
+                (isLoading || isQuotaDepleted) && "opacity-50 cursor-not-allowed"
               )}
             >
-              {isLoading ? '查詢歷史股價並新增中...' : '確認新增持倉'}
+              {isLoading ? '查詢歷史股價並新增中...' : isQuotaDepleted ? '資金已達上限，禁止買入' : '確認新增持倉'}
             </motion.button>
           </div>
         </form>

@@ -100,7 +100,7 @@ export function GroupModal({
             </div>
             <div>
               <h2 className="text-lg font-bold tracking-tight text-white apple-title">管理組合群組</h2>
-              <p className="text-xs text-[#8E8E93]">設定共同初始本金與成員組合</p>
+              <p className="text-xs text-[#8E8E93]">設定各組合獨立初始額度與成員組合</p>
             </div>
           </div>
           <button
@@ -136,7 +136,7 @@ export function GroupModal({
           <div className="space-y-1.5">
             <label className="block text-xs font-medium text-[#8E8E93] flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-white/90">
-                <Coins size={14} className="text-amber-400" /> 共同初始持有金額 (本金池)
+                <Coins size={14} className="text-amber-400" /> 各組合獨立初始額度 (每組合)
               </span>
               <span className="text-[11px] text-[#8E8E93]">選填</span>
             </label>
@@ -149,12 +149,12 @@ export function GroupModal({
                 value={capital}
                 disabled={isSaving}
                 onChange={(e) => setCapital(e.target.value)}
-                placeholder="例如: 1000000 (一百萬)"
+                placeholder="例如: 5000000 (五百萬)"
                 className="input-field pl-7 font-mono"
               />
             </div>
             <p className="text-[11px] text-[#8E8E93] leading-relaxed">
-              此金額為該群組所有組合共同分配的初始總資產，系統將據此精算現金餘額與整體資金報酬率。
+              群組資金不共用。設定後群組內「每個」組合皆享有此獨立資金額度（例：設定 500 萬，2 個組合各自享有 500 萬額度，單一組合動用超過 500 萬時將禁止買入股票）。
             </p>
           </div>
 

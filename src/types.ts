@@ -13,6 +13,7 @@ export interface Portfolio {
 
 export interface PortfolioGroupSummary {
   groupName: string;
+  perPortfolioCapital?: number;
   initialCapital?: number;
   portfolios: Portfolio[];
   totalCost: number;

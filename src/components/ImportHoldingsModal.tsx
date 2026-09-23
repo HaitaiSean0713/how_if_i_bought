@@ -179,7 +179,15 @@ export function ImportHoldingsModal({ portfolio, onClose, onConfirm }: Props) {
     setError(''); setNotice('');
     try {
       const id = crypto.randomUUID();
-      setPreview(planHoldingImport(portfolio, rows, id));
+      const planned = planHoldingImport(portfolio, rows, id);
+      if (typeof portfolio.groupInitialCapital === 'number' && portfolio.groupInitialCapital > 0) {
+        const nextTotalCost = planned.portfolio.positions.reduce((s, p) => s + p.totalCost, 0);
+        if (nextTotalCost > portfolio.groupInitialCapital) {
+          const excess = nextTotalCost - portfolio.groupInitialCapital;
+          throw new Error(`預計匯入後持倉總成本 NT$ ${Math.round(nextTotalCost).toLocaleString()}，已超過本組合資金額度 (NT$ ${Math.round(portfolio.groupInitialCapital).toLocaleString()})，超出 NT$ ${Math.round(excess).toLocaleString()}，已禁止匯入！`);
+        }
+      }
+      setPreview(planned);
       setVersion(holdingsVersion(portfolio)); setBatchId(id);
     } catch (e) { setPreview(null); setError((e as Error).message); }
   }

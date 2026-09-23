@@ -17,7 +17,7 @@ import { auth, db, loginWithGoogle, logout } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, setDoc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { migrateGuestPortfolios } from './lib/guestMigration';
-import { readPortfolioDocument, sortPortfolios, operationError, sellPosition, calculateGroupSummary } from './lib/portfolioOperations';
+import { readPortfolioDocument, sortPortfolios, operationError, sellPosition, calculateGroupSummary, checkPortfolioQuota } from './lib/portfolioOperations';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -282,6 +282,19 @@ function App() {
   const positions = activePortfolio?.positions || [];
   const closedPositions = activePortfolio?.closedPositions || [];
 
+  const activePortfolioCost = useMemo(() => {
+    return positions.reduce((sum, p) => sum + p.totalCost, 0);
+  }, [positions]);
+
+  const activePortfolioRemaining = useMemo(() => {
+    if (typeof activePortfolio?.groupInitialCapital === 'number' && activePortfolio.groupInitialCapital > 0) {
+      return activePortfolio.groupInitialCapital - activePortfolioCost;
+    }
+    return undefined;
+  }, [activePortfolio?.groupInitialCapital, activePortfolioCost]);
+
+  const isQuotaDepleted = activePortfolioRemaining !== undefined && activePortfolioRemaining <= 0;
+
   const existingGroups = useMemo(() => {
     const map = new Map<string, { name: string; initialCapital?: number; count: number }>();
     portfolios.forEach(p => {
@@ -327,6 +340,12 @@ function App() {
 
   const handleAddPosition = async (newPos: Omit<Position, 'id' | 'totalCost'>) => {
     await updateActivePortfolio(p => {
+      const addedCost = newPos.buyPrice * newPos.shares;
+      const quotaCheck = checkPortfolioQuota(p, addedCost);
+      if (quotaCheck && !quotaCheck.allowed) {
+        throw new Error(`超過該組合分配資金額度！剩餘額度 NT$ ${Math.max(0, Math.round(quotaCheck.remaining)).toLocaleString()}，本次買入需 NT$ ${Math.round(addedCost).toLocaleString()}，超出 NT$ ${Math.round(quotaCheck.excess).toLocaleString()}，已禁止買入！`);
+      }
+
       const positions = [...p.positions];
       const existingIndex = positions.findIndex(
         pos => pos.symbol === newPos.symbol && pos.buyDate === newPos.buyDate
@@ -369,7 +388,13 @@ function App() {
       if (expectedVersion && holdingsVersion(current) !== expectedVersion) {
         throw new Error('持倉已在其他視窗或裝置變更，請重新產生預覽。');
       }
-      return planHoldingImport(current, rows, batchId).portfolio;
+      const planned = planHoldingImport(current, rows, batchId);
+      const nextTotalCost = planned.portfolio.positions.reduce((sum, pos) => sum + pos.totalCost, 0);
+      if (typeof current.groupInitialCapital === 'number' && current.groupInitialCapital > 0 && nextTotalCost > current.groupInitialCapital) {
+        const excess = nextTotalCost - current.groupInitialCapital;
+        throw new Error(`匯入後持倉總成本 NT$ ${Math.round(nextTotalCost).toLocaleString()} 超過該組合分配資金額度 (NT$ ${Math.round(current.groupInitialCapital).toLocaleString()})，超出 NT$ ${Math.round(excess).toLocaleString()}，已禁止匯入！`);
+      }
+      return planned.portfolio;
     });
     setActiveTab('active');
     setIsImportOpen(false);
@@ -1085,10 +1110,26 @@ function App() {
 
               {activeTab === 'active' && (
                 <div className="flex flex-wrap gap-2.5 justify-end items-center">
+                  {typeof activePortfolio?.groupInitialCapital === 'number' && activePortfolio.groupInitialCapital > 0 && (
+                    <div className={cn(
+                      "px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-1.5",
+                      isQuotaDepleted
+                        ? "bg-rose-950/40 border-rose-500/50 text-rose-300"
+                        : "bg-indigo-950/30 border-indigo-500/30 text-indigo-200"
+                    )}>
+                      <span>額度剩餘：</span>
+                      <strong className={isQuotaDepleted ? "text-rose-400" : "text-emerald-400"}>
+                        {formatCurrency(Math.max(0, activePortfolioRemaining ?? 0))}
+                      </strong>
+                      <span className="text-[#8E8E93] text-[10px]">/ {formatCurrency(activePortfolio.groupInitialCapital)}</span>
+                    </div>
+                  )}
+
                   <button 
-                    disabled={!activePortfolio || !!pendingAction} 
+                    disabled={!activePortfolio || !!pendingAction || isQuotaDepleted} 
                     onClick={() => setIsImportOpen(true)} 
                     className="action-btn-secondary px-3.5 py-1.5 text-xs sm:text-sm flex items-center gap-1.5 disabled:opacity-40"
+                    title={isQuotaDepleted ? "額度已滿，無法匯入新持倉" : "匯入文字／表格"}
                   >
                     <FileSpreadsheet size={15} className="text-[#A1A1A6]" />
                     匯入文字／表格
@@ -1103,12 +1144,16 @@ function App() {
                   </button>
                   <motion.button 
                     whileTap={{ scale: 0.97 }}
-                    disabled={!activePortfolio || !!pendingAction}
+                    disabled={!activePortfolio || !!pendingAction || isQuotaDepleted}
                     onClick={() => setIsModalOpen(true)}
-                    className="action-btn py-1.5 px-4 text-xs sm:text-sm font-semibold shadow-md flex items-center gap-1.5 disabled:opacity-40"
+                    className={cn(
+                      "action-btn py-1.5 px-4 text-xs sm:text-sm font-semibold shadow-md flex items-center gap-1.5 disabled:opacity-40",
+                      isQuotaDepleted && "opacity-50 cursor-not-allowed bg-rose-900/40 text-rose-300 border-rose-800"
+                    )}
+                    title={isQuotaDepleted ? "本組合資金額度已用盡，無法繼續買入" : "新增部位"}
                   >
                     <Plus size={16} />
-                    新增部位
+                    {isQuotaDepleted ? "額度已用盡" : "新增部位"}
                   </motion.button>
                 </div>
               )}
@@ -1128,7 +1173,7 @@ function App() {
                           <h3 className="text-base font-semibold text-white tracking-tight">{activeGroupSummary.groupName}</h3>
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 font-medium">群組總覽</span>
                         </div>
-                        <p className="text-xs text-[#8E8E93] mt-0.5">包含 {activeGroupSummary.portfolios.length} 個投資組合的共享資金池與綜觀分析</p>
+                        <p className="text-xs text-[#8E8E93] mt-0.5">包含 {activeGroupSummary.portfolios.length} 個投資組合（各擁獨立資金額度，不共用）之綜觀分析</p>
                       </div>
                     </div>
                     <button
@@ -1142,10 +1187,15 @@ function App() {
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
                     <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
-                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">共同初始資金</span>
+                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">每組合專屬額度</span>
                       <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
-                        {activeGroupSummary.initialCapital !== undefined ? formatCurrency(activeGroupSummary.initialCapital) : '未設定'}
+                        {activeGroupSummary.perPortfolioCapital !== undefined ? formatCurrency(activeGroupSummary.perPortfolioCapital) : '未設定'}
                       </span>
+                      {activeGroupSummary.initialCapital !== undefined ? (
+                        <span className="text-[10px] text-[#8E8E93] font-mono block mt-0.5">
+                          總規模 {formatCurrency(activeGroupSummary.initialCapital)} ({activeGroupSummary.portfolios.length}組合)
+                        </span>
+                      ) : null}
                     </div>
                     <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
                       <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組已用成本</span>
@@ -1154,18 +1204,18 @@ function App() {
                       </span>
                       {activeGroupSummary.initialCapital ? (
                         <span className="text-[10px] text-[#8E8E93] font-mono block mt-0.5">
-                          佔資金 {((activeGroupSummary.totalCost / activeGroupSummary.initialCapital) * 100).toFixed(1)}%
+                          佔總額度 {((activeGroupSummary.totalCost / activeGroupSummary.initialCapital) * 100).toFixed(1)}%
                         </span>
                       ) : null}
                     </div>
                     <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
-                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">剩餘可用資金</span>
+                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組剩餘可用額度</span>
                       <span className={cn("text-sm sm:text-base font-semibold font-mono tabular-nums", activeGroupSummary.remainingCash !== undefined && activeGroupSummary.remainingCash < 0 ? "text-[#FF453A]" : "text-white")}>
                         {activeGroupSummary.remainingCash !== undefined ? formatCurrency(activeGroupSummary.remainingCash) : '—'}
                       </span>
                       {activeGroupSummary.initialCapital !== undefined && activeGroupSummary.remainingCash !== undefined ? (
                         <span className="text-[10px] text-[#8E8E93] font-mono block mt-0.5">
-                          佔資金 {((activeGroupSummary.remainingCash / activeGroupSummary.initialCapital) * 100).toFixed(1)}%
+                          佔總額度 {((activeGroupSummary.remainingCash / activeGroupSummary.initialCapital) * 100).toFixed(1)}%
                         </span>
                       ) : null}
                     </div>
@@ -1331,16 +1381,21 @@ function App() {
                     <div className="flex justify-center gap-3 flex-wrap">
                       <motion.button 
                         whileTap={{ scale: 0.97 }}
-                        disabled={!activePortfolio || !!pendingAction}
+                        disabled={!activePortfolio || !!pendingAction || isQuotaDepleted}
                         onClick={() => setIsModalOpen(true)}
-                        className="action-btn text-xs sm:text-sm font-semibold shadow-md flex items-center gap-2"
+                        className={cn(
+                          "action-btn text-xs sm:text-sm font-semibold shadow-md flex items-center gap-2",
+                          isQuotaDepleted && "opacity-50 cursor-not-allowed bg-rose-900/40 text-rose-300 border-rose-800"
+                        )}
+                        title={isQuotaDepleted ? "本組合額度已滿，無法買入" : "新增部位"}
                       >
-                        <Plus size={16} /> 新增模擬部位
+                        <Plus size={16} /> {isQuotaDepleted ? "額度已用盡" : "新增模擬部位"}
                       </motion.button>
                       <button 
-                        disabled={!activePortfolio || !!pendingAction}
+                        disabled={!activePortfolio || !!pendingAction || isQuotaDepleted}
                         onClick={() => setIsImportOpen(true)}
-                        className="action-btn-secondary text-xs sm:text-sm flex items-center gap-1.5"
+                        className="action-btn-secondary text-xs sm:text-sm flex items-center gap-1.5 disabled:opacity-40"
+                        title={isQuotaDepleted ? "本組合額度已滿，無法匯入" : "批量匯入持倉"}
                       >
                         <FileSpreadsheet size={15} className="text-[#A1A1A6]" />
                         批量匯入持倉
@@ -1383,7 +1438,7 @@ function App() {
                       {closedPositions.map((pos) => (
                         <ClosedPositionCard 
                           key={pos.id} 
-                          position={pos}
+                          position={pos} 
                           onRemove={handleRemoveClosedPosition}
                         />
                       ))}
@@ -1402,6 +1457,9 @@ function App() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAddPosition}
+        remainingCapital={activePortfolioRemaining}
+        initialCapital={activePortfolio?.groupInitialCapital}
+        currentCost={activePortfolioCost}
       />
 
       {isImportOpen && activePortfolio && <ImportHoldingsModal key={activePortfolio.id} portfolio={activePortfolio} onClose={() => setIsImportOpen(false)} onConfirm={handleImportHoldings} />}

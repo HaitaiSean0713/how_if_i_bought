@@ -151,7 +151,7 @@ export function PortfolioModal({
           <div className="space-y-1.5 pt-1">
             <label className="block text-xs font-medium text-[#8E8E93] flex items-center justify-between">
               <span>所屬群組 (可選)</span>
-              <span className="text-[11px] text-[#8E8E93]">將多個組合歸組共享資金</span>
+              <span className="text-[11px] text-[#8E8E93]">將多個組合歸組獨立分配額度</span>
             </label>
             <select
               value={selectedGroup}
@@ -164,7 +164,7 @@ export function PortfolioModal({
               </option>
               {existingGroups.map((g) => (
                 <option key={g.name} value={g.name} className="bg-[#1c1c24] text-[#F5F5F7] py-1">
-                  群組：{g.name} {g.initialCapital ? `(初始本金 $${g.initialCapital.toLocaleString()})` : ''}
+                  群組：{g.name} {g.initialCapital ? `(每組合額度 $${g.initialCapital.toLocaleString()})` : ''}
                 </option>
               ))}
               <option value="__new__" className="bg-[#1c1c24] text-[#38BDF8] font-semibold py-1">
@@ -196,7 +196,7 @@ export function PortfolioModal({
             </motion.div>
           )}
 
-          {/* Shared Initial Capital Input Field */}
+          {/* Independent Initial Capital Input Field */}
           {selectedGroup !== '__none__' && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
@@ -206,7 +206,7 @@ export function PortfolioModal({
               <label className="block text-xs font-medium text-white flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Coins size={14} className="text-amber-400" />
-                  群組共同初始持有金額 (總本金)
+                  群組各組合獨立初始額度 (每組合)
                 </span>
                 <span className="text-[11px] text-[#8E8E93]">選填</span>
               </label>
@@ -219,12 +219,12 @@ export function PortfolioModal({
                   value={groupCapital}
                   disabled={isSaving}
                   onChange={(e) => setGroupCapital(e.target.value)}
-                  placeholder="例如: 1000000"
+                  placeholder="例如: 5000000 (五百萬)"
                   className="input-field pl-7 font-mono"
                 />
               </div>
               <p className="text-[11px] text-[#8E8E93] leading-relaxed">
-                群組內所有組合將共同動用此起始本金池，自動計算現金餘額與資金利用率。
+                群組資金不共用，各組合獨立享有此資金額度（例：設定 500 萬，兩組合各有 500 萬）。超過額度時將禁止買入股票。
               </p>
             </motion.div>
           )}
