@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical, Sparkles, ShieldCheck, FileSpreadsheet } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical, Sparkles, ShieldCheck, FileSpreadsheet, Layers, Settings, FolderOpen } from 'lucide-react';
 import { Position, QuoteData, PortfolioSummary, Portfolio } from './types';
 import { cn } from './lib/utils';
 import { AddPositionModal } from './components/AddPositionModal';
@@ -8,6 +8,7 @@ import { PositionCard, formatCurrency, formatPercent } from './components/Positi
 import { SellPositionModal } from './components/SellPositionModal';
 import { ClosedPositionCard } from './components/ClosedPositionCard';
 import { PortfolioModal } from './components/PortfolioModal';
+import { GroupModal } from './components/GroupModal';
 import { ImportHoldingsModal } from './components/ImportHoldingsModal';
 import { CursorFollower } from './components/CursorFollower';
 import { SpotlightCard } from './components/SpotlightCard';
@@ -16,7 +17,7 @@ import { auth, db, loginWithGoogle, logout } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, setDoc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { migrateGuestPortfolios } from './lib/guestMigration';
-import { readPortfolioDocument, sortPortfolios, operationError, sellPosition } from './lib/portfolioOperations';
+import { readPortfolioDocument, sortPortfolios, operationError, sellPosition, calculateGroupSummary } from './lib/portfolioOperations';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -45,6 +46,7 @@ function App() {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [selectedRenamePortfolio, setSelectedRenamePortfolio] = useState<Portfolio | null>(null);
   const [portfolioToDelete, setPortfolioToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [selectedGroupModal, setSelectedGroupModal] = useState<string | null>(null);
 
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -280,6 +282,33 @@ function App() {
   const positions = activePortfolio?.positions || [];
   const closedPositions = activePortfolio?.closedPositions || [];
 
+  const existingGroups = useMemo(() => {
+    const map = new Map<string, { name: string; initialCapital?: number; count: number }>();
+    portfolios.forEach(p => {
+      if (p.groupName) {
+        const existing = map.get(p.groupName);
+        if (existing) {
+          existing.count += 1;
+          if (p.groupInitialCapital !== undefined) {
+            existing.initialCapital = p.groupInitialCapital;
+          }
+        } else {
+          map.set(p.groupName, {
+            name: p.groupName,
+            initialCapital: p.groupInitialCapital,
+            count: 1,
+          });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [portfolios]);
+
+  const activeGroupSummary = useMemo(() => {
+    if (!activePortfolio?.groupName) return null;
+    return calculateGroupSummary(activePortfolio.groupName, portfolios, quotes);
+  }, [activePortfolio?.groupName, portfolios, quotes]);
+
   const groupedPositions = useMemo(() => {
     const groups: Record<string, Position & { history: Position[] }> = {};
     for (const pos of positions) {
@@ -359,7 +388,7 @@ function App() {
     setSellModalData(null);
   };
 
-  const handleCreatePortfolio = async (name: string) => {
+  const handleCreatePortfolio = async (name: string, groupName?: string, groupInitialCapital?: number) => {
     if (!user && !isGuest) return;
     const maxOrder = portfolios.reduce((max, p) => Math.max(max, p.sortOrder || 0), 0);
     const newPort: Portfolio = { 
@@ -369,23 +398,164 @@ function App() {
       closedPositions: [],
       userId: user?.uid || '',
       createdAt: Date.now(),
-      sortOrder: maxOrder + 1
+      sortOrder: maxOrder + 1,
+      ...(groupName ? { groupName } : {}),
+      ...(groupInitialCapital !== undefined && !isNaN(groupInitialCapital) ? { groupInitialCapital } : {})
     };
 
     await performMutation('新增組合', async () => {
-      if (isGuest) saveGuestPortfolios([...portfolios, newPort]);
-      else await setDoc(doc(db, 'portfolios', newPort.id), newPort);
+      if (isGuest) {
+        let updatedPortfolios = [...portfolios, newPort];
+        if (groupName && groupInitialCapital !== undefined && !isNaN(groupInitialCapital)) {
+          updatedPortfolios = updatedPortfolios.map(p => p.groupName === groupName ? { ...p, groupInitialCapital } : p);
+        }
+        saveGuestPortfolios(updatedPortfolios);
+      } else {
+        const batch = writeBatch(db);
+        const docData: any = {
+          id: newPort.id,
+          name: newPort.name,
+          positions: newPort.positions,
+          closedPositions: newPort.closedPositions,
+          userId: newPort.userId,
+          createdAt: newPort.createdAt,
+          sortOrder: newPort.sortOrder,
+        };
+        if (groupName) {
+          docData.groupName = groupName;
+          if (groupInitialCapital !== undefined && !isNaN(groupInitialCapital)) {
+            docData.groupInitialCapital = groupInitialCapital;
+          }
+        }
+        batch.set(doc(db, 'portfolios', newPort.id), docData);
+        if (groupName && groupInitialCapital !== undefined && !isNaN(groupInitialCapital)) {
+          portfolios.filter(p => p.groupName === groupName).forEach(p => {
+            batch.update(doc(db, 'portfolios', p.id), { groupInitialCapital });
+          });
+        }
+        await batch.commit();
+      }
     });
     setActivePortfolioId(newPort.id);
     setActiveTab('active');
   };
 
-  const handleRenamePortfolio = async (newName: string) => {
+  const handleRenamePortfolio = async (newName: string, groupName?: string, groupInitialCapital?: number) => {
     if (!selectedRenamePortfolio) throw new Error('請重新選取要修改的組合。');
     const id = selectedRenamePortfolio.id;
-    await performMutation('重新命名', async () => {
-      if (isGuest) saveGuestPortfolios(portfolios.map(p => p.id === id ? { ...p, name: newName, updatedAt: Date.now() } : p));
-      else await updateDoc(doc(db, 'portfolios', id), { name: newName, updatedAt: Date.now() });
+    await performMutation('更新組合', async () => {
+      if (isGuest) {
+        let updated = portfolios.map(p => {
+          if (p.id === id) {
+            const copy = { ...p, name: newName, updatedAt: Date.now() };
+            if (groupName) {
+              copy.groupName = groupName;
+              copy.groupInitialCapital = groupInitialCapital;
+            } else {
+              delete copy.groupName;
+              delete copy.groupInitialCapital;
+            }
+            return copy;
+          }
+          if (groupName && p.groupName === groupName && groupInitialCapital !== undefined && !isNaN(groupInitialCapital)) {
+            return { ...p, groupInitialCapital, updatedAt: Date.now() };
+          }
+          return p;
+        });
+        saveGuestPortfolios(updated);
+      } else {
+        const batch = writeBatch(db);
+        const updatePayload: Record<string, any> = {
+          name: newName,
+          updatedAt: Date.now(),
+        };
+        if (groupName) {
+          updatePayload.groupName = groupName;
+          if (groupInitialCapital !== undefined && !isNaN(groupInitialCapital)) {
+            updatePayload.groupInitialCapital = groupInitialCapital;
+          } else {
+            updatePayload.groupInitialCapital = null;
+          }
+        } else {
+          updatePayload.groupName = null;
+          updatePayload.groupInitialCapital = null;
+        }
+        batch.update(doc(db, 'portfolios', id), updatePayload);
+        if (groupName && groupInitialCapital !== undefined && !isNaN(groupInitialCapital)) {
+          portfolios.filter(p => p.id !== id && p.groupName === groupName).forEach(p => {
+            batch.update(doc(db, 'portfolios', p.id), { groupInitialCapital, updatedAt: Date.now() });
+          });
+        }
+        await batch.commit();
+      }
+    });
+  };
+
+  const handleSaveGroup = async (oldGroupName: string, newGroupName: string, newCapital?: number) => {
+    const memberPortfolios = portfolios.filter(p => p.groupName === oldGroupName);
+    if (memberPortfolios.length === 0) return;
+
+    await performMutation('更新群組', async () => {
+      if (isGuest) {
+        const updated = portfolios.map(p => {
+          if (p.groupName === oldGroupName) {
+            const copy = { ...p, groupName: newGroupName, updatedAt: Date.now() };
+            if (newCapital !== undefined && !isNaN(newCapital)) {
+              copy.groupInitialCapital = newCapital;
+            } else {
+              delete copy.groupInitialCapital;
+            }
+            return copy;
+          }
+          return p;
+        });
+        saveGuestPortfolios(updated);
+      } else {
+        const batch = writeBatch(db);
+        memberPortfolios.forEach(p => {
+          const updatePayload: Record<string, any> = {
+            groupName: newGroupName,
+            updatedAt: Date.now(),
+          };
+          if (newCapital !== undefined && !isNaN(newCapital)) {
+            updatePayload.groupInitialCapital = newCapital;
+          } else {
+            updatePayload.groupInitialCapital = null;
+          }
+          batch.update(doc(db, 'portfolios', p.id), updatePayload);
+        });
+        await batch.commit();
+      }
+    });
+  };
+
+  const handleDissolveGroup = async (groupName: string) => {
+    const memberPortfolios = portfolios.filter(p => p.groupName === groupName);
+    if (memberPortfolios.length === 0) return;
+
+    await performMutation('解散群組', async () => {
+      if (isGuest) {
+        const updated = portfolios.map(p => {
+          if (p.groupName === groupName) {
+            const copy = { ...p, updatedAt: Date.now() };
+            delete copy.groupName;
+            delete copy.groupInitialCapital;
+            return copy;
+          }
+          return p;
+        });
+        saveGuestPortfolios(updated);
+      } else {
+        const batch = writeBatch(db);
+        memberPortfolios.forEach(p => {
+          batch.update(doc(db, 'portfolios', p.id), {
+            groupName: null,
+            groupInitialCapital: null,
+            updatedAt: Date.now(),
+          });
+        });
+        await batch.commit();
+      }
     });
   };
 
@@ -669,7 +839,12 @@ function App() {
                       transition={{ type: 'spring', bounce: 0.16, duration: 0.35 }}
                     />
                   )}
-                  <span>{p.name}</span>
+                  <span className="truncate max-w-[120px] sm:max-w-none">{p.name}</span>
+                  {p.groupName && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/25 text-blue-300 font-normal flex-shrink-0">
+                      {p.groupName}
+                    </span>
+                  )}
                 </button>
                 {isActive && (
                   <div className="flex items-center gap-0.5 ml-1 mr-1.5 z-10">
@@ -736,6 +911,67 @@ function App() {
               投資組合比較
               <span className="text-xs uppercase tracking-wider text-[#8E8E93] font-normal">Portfolio Comparison</span>
             </h2>
+
+            {existingGroups.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-sm font-semibold tracking-tight text-[#8E8E93] uppercase mb-3 px-1 flex items-center gap-2">
+                  <Layers size={14} className="text-blue-400" />
+                  群組資金池總覽 (Group Summaries)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {existingGroups.map(g => {
+                    const gSummary = calculateGroupSummary(g.name, portfolios, quotes);
+                    return (
+                      <SpotlightCard key={g.name} className="border border-blue-500/20 bg-gradient-to-b from-blue-950/15 via-white/[0.01] to-transparent p-5">
+                        <div className="flex justify-between items-start mb-3 border-b border-white/[0.06] pb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-white tracking-tight">{g.name}</h4>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-medium">群組</span>
+                            </div>
+                            <p className="text-xs text-[#8E8E93] mt-0.5">{gSummary.portfolios.length} 個投資組合</p>
+                          </div>
+                          <button
+                            onClick={() => setSelectedGroupModal(g.name)}
+                            className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                            title="管理群組"
+                          >
+                            <Settings size={14} />
+                          </button>
+                        </div>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between text-[#8E8E93]">
+                            <span>共同初始資金</span>
+                            <span className="font-mono text-white font-medium">{gSummary.initialCapital !== undefined ? formatCurrency(gSummary.initialCapital) : '未設定'}</span>
+                          </div>
+                          <div className="flex justify-between text-[#8E8E93]">
+                            <span>已動用成本</span>
+                            <span className="font-mono text-white">{formatCurrency(gSummary.totalCost)}</span>
+                          </div>
+                          <div className="flex justify-between text-[#8E8E93]">
+                            <span>剩餘可用資金</span>
+                            <span className={cn("font-mono", gSummary.remainingCash !== undefined && gSummary.remainingCash < 0 ? "text-[#FF453A]" : "text-white")}>
+                              {gSummary.remainingCash !== undefined ? formatCurrency(gSummary.remainingCash) : '—'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-[#8E8E93]">
+                            <span>群組股票市值</span>
+                            <span className="font-mono text-white font-medium">{formatCurrency(gSummary.totalValue)}</span>
+                          </div>
+                          <div className="flex justify-between text-[#8E8E93] pt-2 border-t border-white/[0.06]">
+                            <span>資本總回報</span>
+                            <span className={cn("font-mono font-semibold", gSummary.totalReturn >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
+                              {gSummary.totalReturn > 0 ? '+' : ''}{formatCurrency(gSummary.totalReturn)} ({formatPercent(gSummary.totalReturnPercent)})
+                            </span>
+                          </div>
+                        </div>
+                      </SpotlightCard>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
               {portfolioSummaries.map(p => (
                  <SpotlightCard 
@@ -745,7 +981,7 @@ function App() {
                    animate={{ opacity: 1, y: 0 }}
                    whileHover={{ y: -3, transition: { duration: 0.15 } }}
                    draggable={!pendingAction}
-                   onDragStart={(e) => handleDragStart(e, p.id)}
+                   onDragStart={(e: any) => handleDragStart(e, p.id)}
                    onDragOver={(e) => handleDragOver(e, p.id)}
                    onDragLeave={handleDragLeave}
                    onDrop={(e) => handleDrop(e, p.id)}
@@ -763,6 +999,11 @@ function App() {
                       <div className="flex items-center gap-2 mb-5 border-b border-white/[0.08] pb-3">
                         <GripVertical size={16} className="text-[#8E8E93] flex-shrink-0" />
                         <h3 className="text-lg font-semibold text-white tracking-tight flex-1 truncate">{p.name}</h3>
+                        {p.groupName && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300 font-medium flex-shrink-0">
+                            {p.groupName}
+                          </span>
+                        )}
                       </div>
                       <div className="space-y-3.5">
                         <div className="flex justify-between items-center pb-2 border-b border-white/[0.05]">
@@ -872,6 +1113,110 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* Portfolio Group Summary Banner */}
+            {activeGroupSummary && (
+              <SpotlightCard className="mb-6 border border-blue-500/20 bg-gradient-to-r from-blue-950/20 via-white/[0.02] to-indigo-950/20 shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
+                <div className="p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/[0.08]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-center text-blue-400">
+                        <Layers size={16} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-semibold text-white tracking-tight">{activeGroupSummary.groupName}</h3>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300 font-medium">群組總覽</span>
+                        </div>
+                        <p className="text-xs text-[#8E8E93] mt-0.5">包含 {activeGroupSummary.portfolios.length} 個投資組合的共享資金池與綜觀分析</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedGroupModal(activeGroupSummary.groupName)}
+                      className="self-start sm:self-auto action-btn-secondary px-3 py-1.5 text-xs flex items-center gap-1.5 text-white/80 hover:text-white"
+                    >
+                      <Settings size={13} />
+                      管理群組設定
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">共同初始資金</span>
+                      <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
+                        {activeGroupSummary.initialCapital !== undefined ? formatCurrency(activeGroupSummary.initialCapital) : '未設定'}
+                      </span>
+                    </div>
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組已用成本</span>
+                      <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
+                        {formatCurrency(activeGroupSummary.totalCost)}
+                      </span>
+                      {activeGroupSummary.initialCapital ? (
+                        <span className="text-[10px] text-[#8E8E93] font-mono block mt-0.5">
+                          佔資金 {((activeGroupSummary.totalCost / activeGroupSummary.initialCapital) * 100).toFixed(1)}%
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">剩餘可用資金</span>
+                      <span className={cn("text-sm sm:text-base font-semibold font-mono tabular-nums", activeGroupSummary.remainingCash !== undefined && activeGroupSummary.remainingCash < 0 ? "text-[#FF453A]" : "text-white")}>
+                        {activeGroupSummary.remainingCash !== undefined ? formatCurrency(activeGroupSummary.remainingCash) : '—'}
+                      </span>
+                      {activeGroupSummary.initialCapital !== undefined && activeGroupSummary.remainingCash !== undefined ? (
+                        <span className="text-[10px] text-[#8E8E93] font-mono block mt-0.5">
+                          佔資金 {((activeGroupSummary.remainingCash / activeGroupSummary.initialCapital) * 100).toFixed(1)}%
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組股票市值</span>
+                      <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
+                        {formatCurrency(activeGroupSummary.totalValue)}
+                      </span>
+                    </div>
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組整體淨值</span>
+                      <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
+                        {activeGroupSummary.totalNetWorth !== undefined ? formatCurrency(activeGroupSummary.totalNetWorth) : formatCurrency(activeGroupSummary.totalValue)}
+                      </span>
+                      <span className="text-[10px] text-[#8E8E93] block mt-0.5">
+                        {activeGroupSummary.initialCapital !== undefined ? '現金 + 股票市值' : '股票市值'}
+                      </span>
+                    </div>
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">整體資本回報</span>
+                      <span className={cn("text-sm sm:text-base font-semibold font-mono tabular-nums", activeGroupSummary.totalReturn >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
+                        {activeGroupSummary.totalReturn > 0 ? '+' : ''}{formatCurrency(activeGroupSummary.totalReturn)}
+                      </span>
+                      <span className={cn("text-[10px] font-mono font-medium block mt-0.5", activeGroupSummary.totalReturn >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
+                        {formatPercent(activeGroupSummary.totalReturnPercent)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Member portfolios quick switcher */}
+                  <div className="flex items-center gap-2 overflow-x-auto pt-1 scrollbar-hide text-xs">
+                    <span className="text-[#8E8E93] flex-shrink-0">群組成員：</span>
+                    {activeGroupSummary.portfolios.map(mp => (
+                      <button
+                        key={mp.id}
+                        onClick={() => setActivePortfolioId(mp.id)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg border text-xs font-mono transition-all flex items-center gap-1.5 flex-shrink-0",
+                          mp.id === activePortfolioId
+                            ? "bg-white/15 border-white/30 text-white font-medium shadow-xs"
+                            : "bg-white/[0.03] border-white/[0.08] text-[#8E8E93] hover:text-white hover:bg-white/[0.06]"
+                        )}
+                      >
+                        <span>{mp.name}</span>
+                        <span className="text-[10px] opacity-60">({mp.positions.length}檔持倉)</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </SpotlightCard>
+            )}
 
             {/* Apple Spotlight Bento Grid Dashboard */}
             {activeTab === 'active' ? (
@@ -1072,6 +1417,7 @@ function App() {
       <PortfolioModal 
         isOpen={isPortfolioModalOpen}
         onClose={() => setIsPortfolioModalOpen(false)}
+        existingGroups={existingGroups}
         onConfirm={handleCreatePortfolio}
       />
 
@@ -1082,8 +1428,23 @@ function App() {
           setSelectedRenamePortfolio(null);
         }}
         initialName={selectedRenamePortfolio?.name || ''}
+        initialGroupName={selectedRenamePortfolio?.groupName}
+        initialGroupCapital={selectedRenamePortfolio?.groupInitialCapital}
+        existingGroups={existingGroups}
         onConfirm={handleRenamePortfolio}
       />
+
+      {selectedGroupModal && (
+        <GroupModal
+          isOpen={!!selectedGroupModal}
+          onClose={() => setSelectedGroupModal(null)}
+          groupName={selectedGroupModal}
+          initialCapital={portfolios.find(p => p.groupName === selectedGroupModal && p.groupInitialCapital !== undefined)?.groupInitialCapital}
+          memberPortfolios={portfolios.filter(p => p.groupName === selectedGroupModal)}
+          onSaveGroup={handleSaveGroup}
+          onDissolveGroup={handleDissolveGroup}
+        />
+      )}
 
       {portfolioToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4">

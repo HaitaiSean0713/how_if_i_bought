@@ -1,12 +1,28 @@
 export interface Portfolio {
   id: string;
   name: string;
+  groupName?: string;
+  groupInitialCapital?: number;
   userId?: string;
   createdAt?: number;
   updatedAt?: number;
   positions: Position[];
   closedPositions: ClosedPosition[];
   sortOrder?: number;
+}
+
+export interface PortfolioGroupSummary {
+  groupName: string;
+  initialCapital?: number;
+  portfolios: Portfolio[];
+  totalCost: number;
+  totalValue: number;
+  totalReturn: number;
+  totalReturnPercent: number;
+  remainingCash?: number;
+  totalNetWorth: number;
+  returnOnCapital: number;
+  returnOnCapitalPercent: number;
 }
 
 export interface Position {

@@ -1,7 +1,64 @@
-import type { Portfolio } from '../types';
+import type { Portfolio, PortfolioGroupSummary } from '../types';
 
 export function readPortfolioDocument(id: string, data: Partial<Portfolio>): Portfolio {
-  return { ...data, id, name: data.name || '未命名組合', positions: data.positions || [], closedPositions: data.closedPositions || [] };
+  const groupName = typeof data.groupName === 'string' && data.groupName.trim() ? data.groupName.trim() : undefined;
+  const groupInitialCapital = typeof data.groupInitialCapital === 'number' && Number.isFinite(data.groupInitialCapital) && data.groupInitialCapital > 0 ? data.groupInitialCapital : undefined;
+  return { 
+    ...data, 
+    id, 
+    name: data.name || '未命名組合', 
+    groupName,
+    groupInitialCapital,
+    positions: data.positions || [], 
+    closedPositions: data.closedPositions || [] 
+  };
+}
+
+export function calculateGroupSummary(
+  groupName: string,
+  portfolios: Portfolio[],
+  quotes: Record<string, { regularMarketPrice?: number }> = {}
+): PortfolioGroupSummary {
+  const memberPortfolios = portfolios.filter(p => p.groupName === groupName);
+  const foundCapital = memberPortfolios.find(p => typeof p.groupInitialCapital === 'number' && p.groupInitialCapital > 0)?.groupInitialCapital;
+
+  let totalCost = 0;
+  let totalValue = 0;
+  let totalReturn = 0;
+
+  for (const p of memberPortfolios) {
+    for (const pos of p.positions) {
+      const q = quotes[pos.symbol] || quotes[pos.symbol + '.TW'] || quotes[pos.symbol + '.TWO'];
+      const price = q?.regularMarketPrice || pos.buyPrice;
+      const val = price * pos.shares;
+      totalCost += pos.totalCost;
+      totalValue += val;
+      totalReturn += (val - pos.totalCost);
+    }
+  }
+
+  const totalReturnPercent = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0;
+  const initialCapital = foundCapital !== undefined ? foundCapital : undefined;
+  const remainingCash = initialCapital !== undefined ? initialCapital - totalCost : undefined;
+  const totalNetWorth = remainingCash !== undefined ? remainingCash + totalValue : totalValue;
+  const returnOnCapital = totalReturn;
+  const returnOnCapitalPercent = initialCapital !== undefined && initialCapital > 0
+    ? (returnOnCapital / initialCapital) * 100
+    : totalReturnPercent;
+
+  return {
+    groupName,
+    initialCapital,
+    portfolios: memberPortfolios,
+    totalCost,
+    totalValue,
+    totalReturn,
+    totalReturnPercent,
+    remainingCash,
+    totalNetWorth,
+    returnOnCapital,
+    returnOnCapitalPercent,
+  };
 }
 
 export function sortPortfolios(portfolios: Portfolio[]) {
