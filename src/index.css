@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Georgia:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Georgia:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -8,8 +8,14 @@
 
 @layer base {
   body {
-    background-color: #0A0A0C;
+    background-color: #070709;
     color: #E5E7EB;
+    background-image: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(197, 160, 89, 0.12), transparent),
+      radial-gradient(circle at 10% 40%, rgba(52, 211, 153, 0.03), transparent 25%),
+      radial-gradient(circle at 90% 70%, rgba(197, 160, 89, 0.03), transparent 30%);
+    background-attachment: fixed;
+    min-height: 100vh;
   }
 }
 
@@ -20,45 +26,99 @@
   .gold-text {
     color: #C5A059;
   }
+  .gold-gradient-text {
+    background: linear-gradient(135deg, #FFF0D0 0%, #D4AF37 50%, #A88534 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .gold-border {
+    border-color: rgba(197, 160, 89, 0.3);
+  }
   .card-bg {
-    background-color: #141417;
-    border: 1px solid #222226;
+    background: rgba(20, 20, 24, 0.75);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+  }
+  .card-hover {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .card-hover:hover {
+    border-color: rgba(197, 160, 89, 0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.7), 0 0 20px -2px rgba(197, 160, 89, 0.08);
   }
   .green-glow {
-    color: #4ADE80;
-    text-shadow: 0 0 10px rgba(74, 222, 128, 0.2);
+    color: #34D399;
+    text-shadow: 0 0 12px rgba(52, 211, 153, 0.35);
   }
   .red-glow {
     color: #F87171;
-    text-shadow: 0 0 10px rgba(248, 113, 113, 0.2);
+    text-shadow: 0 0 12px rgba(248, 113, 113, 0.35);
+  }
+  .gold-glow {
+    text-shadow: 0 0 16px rgba(197, 160, 89, 0.4);
   }
   .input-field {
-    background-color: #1C1C1F;
-    border: 1px solid #333333;
-    padding: 0.75rem;
-    border-radius: 4px;
-    color: white;
+    background-color: rgba(28, 28, 33, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    color: #F3F4F6;
     width: 100%;
+    transition: all 0.2s ease;
+  }
+  .input-field:focus {
+    outline: none;
+    border-color: #C5A059;
+    box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
   }
   .action-btn {
-    background-color: #C5A059;
-    color: black;
+    background: linear-gradient(135deg, #D4AF37 0%, #B89047 100%);
+    color: #0A0A0C;
     font-weight: 600;
-    padding: 0.75rem 1.5rem;
-    border-radius: 4px;
-    border: none;
+    padding: 0.65rem 1.4rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    box-shadow: 0 2px 10px rgba(197, 160, 89, 0.2);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
   }
   .action-btn:hover {
-    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(197, 160, 89, 0.35);
+    filter: brightness(1.05);
+  }
+  .action-btn:active {
+    transform: translateY(1px);
+  }
+  .action-btn-secondary {
+    background: rgba(28, 28, 33, 0.7);
+    color: #E5E7EB;
+    font-weight: 500;
+    padding: 0.65rem 1.2rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .action-btn-secondary:hover {
+    background: rgba(40, 40, 48, 0.9);
+    border-color: rgba(197, 160, 89, 0.4);
+    color: #FFF;
   }
   .label-text {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
-    color: #6B7280;
+    color: #9CA3AF;
     letter-spacing: 0.1em;
+    font-weight: 600;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
@@ -66,5 +126,25 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+  .shimmer-badge {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer-badge::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 100%);
+    animation: shimmer 2.5s infinite;
+  }
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
   }
 }

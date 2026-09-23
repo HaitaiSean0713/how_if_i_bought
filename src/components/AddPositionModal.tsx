@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { X, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -87,82 +88,89 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4"
       onMouseDown={(e) => {
         if (!isLoading && e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="card-bg rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center p-6 border-b border-[#222226]">
-          <h2 className="text-xl serif gold-text">新增持倉</h2>
-          <button onClick={onClose} disabled={isLoading} className="text-[#6B7280] hover:text-[#E5E7EB] transition-colors">
-            <X size={24} />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 15 }}
+        transition={{ type: 'spring', duration: 0.3, bounce: 0.1 }}
+        className="card-bg rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/10"
+      >
+        <div className="flex justify-between items-center p-6 border-b border-white/8 bg-white/2">
+          <h2 className="text-xl serif gold-gradient-text font-medium">新增部位</h2>
+          <button onClick={onClose} disabled={isLoading} className="text-[#9CA3AF] hover:text-white transition-colors p-1 rounded-md hover:bg-white/5">
+            <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && (
-            <div className="p-3 bg-red-900/20 text-[#F87171] text-sm rounded border border-red-900/50">
+            <div className="p-3 bg-rose-950/40 text-rose-300 text-sm rounded-xl border border-rose-900/60 leading-relaxed">
               {error}
             </div>
           )}
           
           <div className="space-y-1.5">
-            <label className="block label-text">股票代號</label>
+            <label className="block label-text text-[#9CA3AF]">股票代號或名稱</label>
             <div className="relative">
               <input
                 type="text"
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value)}
-                placeholder="例如: 2330 或 台積電"
-                className="input-field transition-colors focus:border-[#C5A059] outline-none uppercase placeholder:normal-case placeholder:text-[#6B7280]/50"
+                placeholder="例如: 2330 或 台積電、元大台灣50"
+                className="input-field uppercase placeholder:normal-case placeholder:text-[#6B7280]/60"
                 required
               />
             </div>
-            <p className="text-xs text-[#6B7280]">可直接輸入股票代號（例如 2330）或中文名稱（例如 台積電、元大台灣50）</p>
+            <p className="text-xs text-[#9CA3AF]">支援上市櫃 2,700+ 檔標的名稱自動解析</p>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block label-text">股數</label>
+            <label className="block label-text text-[#9CA3AF]">股數</label>
             <input
               type="number"
               value={shares}
               onChange={(e) => setShares(e.target.value)}
               placeholder="例如: 1000 (代表一張)"
-              className="input-field transition-colors focus:border-[#C5A059] outline-none placeholder:text-[#6B7280]/50"
+              className="input-field placeholder:text-[#6B7280]/60 font-mono"
               required
               min="1"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block label-text">買進日期</label>
+            <label className="block label-text text-[#9CA3AF]">買進日期</label>
             <input
               type="date"
               value={buyDate}
               onChange={(e) => setBuyDate(e.target.value)}
               max={format(new Date(), 'yyyy-MM-dd')}
-              className="input-field transition-colors focus:border-[#C5A059] outline-none [color-scheme:dark]"
+              className="input-field [color-scheme:dark] font-mono"
               required
             />
           </div>
 
-          <div className="pt-4">
-            <button
+          <div className="pt-3">
+            <motion.button
+              whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading}
               className={cn(
-                "action-btn w-full",
+                "action-btn w-full py-3 text-sm font-semibold shadow-lg",
                 isLoading && "opacity-50 cursor-not-allowed"
               )}
             >
-              {isLoading ? '處理中...' : '確認新增'}
-            </button>
+              {isLoading ? '查詢歷史股價並新增中...' : '確認新增持倉'}
+            </motion.button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }

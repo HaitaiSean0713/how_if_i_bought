@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { motion } from 'motion/react';
+import { X, Briefcase } from 'lucide-react';
 
 interface PortfolioModalProps {
   isOpen: boolean;
@@ -24,18 +25,28 @@ export function PortfolioModal({ isOpen, onClose, onConfirm, initialName = '' }:
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4"
       onMouseDown={(e) => {
         if (!isSaving && e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="card-bg rounded-lg shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+        className="card-bg rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-[#26262B]"
+      >
         <div className="flex justify-between items-center p-6 border-b border-[#222226]">
-          <h2 className="text-xl serif gold-text">{initialName ? '重新命名組合' : '新增投資組合'}</h2>
-          <button onClick={onClose} disabled={isSaving} aria-label="關閉" className="text-[#6B7280] hover:text-[#E5E7EB] transition-colors">
-            <X size={24} />
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-[#C5A059]/10 text-[#C5A059]">
+              <Briefcase size={20} />
+            </div>
+            <h2 className="text-xl serif gold-text">{initialName ? '重新命名組合' : '新增投資組合'}</h2>
+          </div>
+          <button onClick={onClose} disabled={isSaving} aria-label="關閉" className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#E5E7EB] hover:bg-white/5 transition-colors">
+            <X size={20} />
           </button>
         </div>
         <form 
@@ -56,7 +67,7 @@ export function PortfolioModal({ isOpen, onClose, onConfirm, initialName = '' }:
           }} 
           className="p-6 space-y-5"
         >
-           {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+           {error && <p role="alert" className="text-sm text-red-300 p-3 bg-red-900/20 rounded-xl border border-red-900/50">{error}</p>}
            <div className="space-y-1.5">
              <label className="block label-text">組合名稱</label>
              <input 
@@ -74,7 +85,7 @@ export function PortfolioModal({ isOpen, onClose, onConfirm, initialName = '' }:
              <button type="submit" disabled={isSaving} className="action-btn w-full disabled:opacity-50">{isSaving ? '儲存中…' : '確認'}</button>
            </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }

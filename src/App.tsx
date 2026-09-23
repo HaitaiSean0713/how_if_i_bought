@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical, Sparkles, ShieldCheck, FileSpreadsheet } from 'lucide-react';
 import { Position, QuoteData, PortfolioSummary, Portfolio } from './types';
 import { cn } from './lib/utils';
 import { AddPositionModal } from './components/AddPositionModal';
@@ -515,51 +516,69 @@ function App() {
         {/* Header */}
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight gold-text serif flex items-center gap-2">
-              <Activity className="gold-text" />
-              如果我當初有買
-            </h1>
-            <p className="text-xs tracking-widest uppercase opacity-50 mt-2">台股歷史回測與模擬投資系統</p>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D4AF37] to-[#8C6D2B] p-[1px] shadow-lg shadow-[#C5A059]/20 flex items-center justify-center">
+                <div className="w-full h-full bg-[#0E0E12] rounded-[11px] flex items-center justify-center">
+                  <Activity size={18} className="text-[#C5A059]" />
+                </div>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight gold-gradient-text serif">
+                如果我當初有買
+              </h1>
+            </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <p className="text-xs tracking-widest uppercase text-[#9CA3AF]">台股歷史回測與模擬投資系統</p>
+              <span className="text-white/20">•</span>
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-mono font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                即時行情連線
+              </div>
+            </div>
           </div>
           <div>
              {user ? (
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-[#6B7280]">{user.email}</span>
-                  <button onClick={logout} disabled={!!pendingAction} className="p-2 rounded hover:bg-[#141417] text-[#6B7280] transition-colors" title="登出">
-                    <LogOut size={18} />
+                <div className="flex items-center gap-3 bg-[#141417]/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-xs font-mono text-[#D1D5DB] max-w-[180px] truncate">{user.email}</span>
+                  <button onClick={logout} disabled={!!pendingAction} className="p-1.5 rounded-lg hover:bg-white/10 text-[#9CA3AF] hover:text-white transition-colors" title="登出">
+                    <LogOut size={15} />
                   </button>
                 </div>
              ) : isGuest ? (
-                <div className="flex items-center gap-4">
-                  <span className="text-xs bg-[#1C1C1F] border border-[#222226] text-[#C5A059] px-2.5 py-1 rounded">
-                    訪客體驗中 (本地端儲存)
+                <div className="flex items-center gap-3 bg-[#1C1C22]/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-[#C5A059]/30 shadow-xs">
+                  <span className="text-xs text-[#C5A059] font-medium flex items-center gap-1.5">
+                    <ShieldCheck size={14} /> 訪客模式 (本地儲存)
                   </span>
                   <button 
                     onClick={() => {
                       setIsGuest(false);
                       localStorage.removeItem('is_guest_mode');
                     }} 
-                    className="p-2 rounded hover:bg-[#141417] text-[#6B7280] transition-colors" 
+                    className="p-1 rounded-md hover:bg-white/10 text-[#9CA3AF] hover:text-white transition-colors" 
                     title="結束體驗 / 登入"
                   >
-                    <LogOut size={18} />
+                    <LogOut size={15} />
                   </button>
                 </div>
              ) : (
-                <button onClick={handleLogin} className="flex items-center gap-2 px-4 py-2 border border-[#C5A059] rounded text-[#C5A059] hover:bg-[#C5A059] hover:text-black transition-colors text-sm font-medium">
-                  <LogIn size={16} /> Google 登入
-                </button>
+                <motion.button 
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleLogin} 
+                  className="action-btn text-xs sm:text-sm font-semibold shadow-md"
+                >
+                  <LogIn size={15} /> Google 登入
+                </motion.button>
              )}
           </div>
         </header>
 
-        {pendingAction && <p role="status" className="mb-4 text-sm text-[#C5A059]">{pendingAction}中…</p>}
-        {operationMessage && <p role="alert" className="mb-4 text-sm text-red-300">{operationMessage}</p>}
-        {isLoadingPortfolios && <p role="status" className="mb-4 text-sm">載入投資組合中…</p>}
-        {user && !isLoadingPortfolios && portfolios.length === 0 && <p className="mb-4 text-sm">尚無投資組合，請按「＋ 組合」新增。</p>}
+        {pendingAction && <p role="status" className="mb-4 text-sm text-[#C5A059] flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {pendingAction}中…</p>}
+        {operationMessage && <p role="alert" className="mb-4 text-sm text-rose-300 bg-rose-950/30 border border-rose-900/50 p-3 rounded-lg">{operationMessage}</p>}
+        {isLoadingPortfolios && <p role="status" className="mb-4 text-sm text-[#9CA3AF] flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> 載入投資組合中…</p>}
+        {user && !isLoadingPortfolios && portfolios.length === 0 && <p className="mb-4 text-sm text-[#9CA3AF]">尚無投資組合，請按「＋ 組合」新增。</p>}
 
         {loginError && (
-          <div className="mb-6 p-4 rounded bg-[#2D1616] border border-[#7A2B2B] text-[#FF9E9E] flex flex-col md:flex-row gap-2 justify-between items-start md:items-center text-sm">
+          <div className="mb-6 p-4 rounded-xl bg-[#2D1616]/90 border border-[#7A2B2B] text-[#FF9E9E] flex flex-col md:flex-row gap-2 justify-between items-start md:items-center text-sm shadow-lg">
             <div className="flex-1">
               <p className="font-semibold">{loginError}</p>
               <p className="text-xs opacity-85 mt-2">
@@ -574,99 +593,139 @@ function App() {
         )}
 
         {!user && !isGuest ? (
-           <div className="h-[50vh] flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 bg-[#1C1C1F] text-[#C5A059] rounded-full border border-[#333333] flex items-center justify-center mx-auto mb-6">
-                <Wallet size={24} />
+           <motion.div 
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             transition={{ duration: 0.5 }}
+             className="relative my-12 py-16 px-6 sm:px-12 rounded-2xl border border-white/10 bg-[#0E0E12]/80 backdrop-blur-xl text-center overflow-hidden shadow-2xl"
+           >
+              {/* Radial gradient background aura */}
+              <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#C5A059]/15 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] text-xs font-medium mb-6 shadow-xs">
+                <Sparkles size={14} className="text-[#C5A059]" />
+                台股歷史回測與模擬投資系統
               </div>
-              <h2 className="text-2xl font-serif text-[#E5E7EB] mb-2">雲端同步投資組合</h2>
-              <p className="text-[#6B7280] max-w-md mb-8">
-                登入您的 Google 帳戶以啟動您的雲端模擬投資組合。您的持倉、績效 and 操作紀錄將自動同步並永久儲存。
+
+              <h2 className="text-3xl sm:text-4xl font-serif text-[#F3F4F6] mb-4 tracking-tight max-w-xl mx-auto">
+                如果我當初買了這檔股票，<br/><span className="gold-gradient-text">現在會賺多少？</span>
+              </h2>
+              
+              <p className="text-[#9CA3AF] max-w-lg mx-auto mb-8 text-sm leading-relaxed">
+                精準還原歷史收盤價，模擬計算投資回報率、未實現損益與平倉成效。支援對帳單文字、Excel/CSV 表格與券商截圖智能解析。
               </p>
-              <div className="flex flex-col items-center gap-3">
-                <button 
+
+              <div className="flex flex-wrap justify-center gap-2.5 mb-10 max-w-lg mx-auto">
+                <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300">免註冊訪客模式</span>
+                <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300">支援上市櫃與 ETF (2,700+ 檔)</span>
+                <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300">AI 智能與截圖辨識</span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5">
+                <motion.button 
+                  whileTap={{ scale: 0.98 }}
                   onClick={handleLogin}
-                  className="gold-text border border-[#C5A059] hover:bg-[#C5A059] hover:text-[#0A0A0C] transition-colors rounded px-8 py-3 text-sm font-bold uppercase tracking-widest flex items-center gap-2"
+                  className="action-btn px-8 py-3.5 text-sm font-bold tracking-wider shadow-lg flex items-center gap-2 w-full sm:w-auto justify-center"
                 >
                    <LogIn size={18} />
-                   立即登入 / 註冊
-                </button>
+                   立即登入 / 註冊同步
+                </motion.button>
                 <button 
                   onClick={() => {
                     setIsGuest(true);
                     localStorage.setItem('is_guest_mode', 'true');
                   }}
-                  className="mt-2 text-sm text-[#6B7280] hover:text-[#C5A059] transition-all duration-200 underline focus:outline-none py-1.5"
+                  className="action-btn-secondary px-6 py-3.5 text-sm font-medium w-full sm:w-auto hover:border-[#C5A059]/40"
                 >
-                   直接以「訪客身份」體驗（免登入，資料存在瀏覽器）
+                   直接以「訪客身份」體驗（免登入）
                 </button>
               </div>
-           </div>
+           </motion.div>
         ) : (
           <>
             {/* Portfolios Navigation */}
-        <div className="flex gap-3 mb-8 overflow-x-auto pb-2 border-b border-[#222226] scrollbar-hide items-center">
-          {portfolios.map(p => (
-            <div 
-              key={p.id}
-              className={cn("flex items-center gap-1.5 px-3 py-2 rounded-t-lg border-b-2 text-sm flex-shrink-0 transition-all bg-[#0A0A0C] hover:bg-[#141417] group", 
-                activePortfolioId === p.id && activeTab !== 'compare' 
-                  ? "border-[#C5A059] text-[#C5A059]" 
-                  : "border-transparent text-[#6B7280]"
-              )}
-            >
-              <button 
-                onClick={() => { setActivePortfolioId(p.id); if(activeTab === 'compare') setActiveTab('active'); }}
-                className="transition-colors font-medium focus:outline-none"
+        <div className="flex gap-2 mb-8 overflow-x-auto p-1.5 bg-[#121216]/90 backdrop-blur-md rounded-xl border border-white/8 scrollbar-hide items-center shadow-lg">
+          {portfolios.map(p => {
+            const isActive = activePortfolioId === p.id && activeTab !== 'compare';
+            return (
+              <div 
+                key={p.id}
+                className="relative flex items-center flex-shrink-0"
               >
-                {p.name}
-              </button>
-              {activePortfolioId === p.id && activeTab !== 'compare' && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedRenamePortfolio(p);
-                      setIsRenameModalOpen(true);
-                    }}
-                    className="text-[#6B7280] hover:text-[#C5A059] transition-colors p-0.5 rounded hover:bg-[#1C1C1F]"
-                    title="修改組合名稱"
-                  >
-                    <Edit2 size={12} />
-                  </button>
-                  {portfolios.length > 1 && (
+                <button 
+                  onClick={() => { setActivePortfolioId(p.id); if(activeTab === 'compare') setActiveTab('active'); }}
+                  className={cn(
+                    "relative px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors z-10 flex items-center gap-1.5 focus:outline-none",
+                    isActive 
+                      ? "text-[#0A0A0C] font-semibold" 
+                      : "text-[#9CA3AF] hover:text-[#F3F4F6] hover:bg-white/5"
+                  )}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="activePortfolioPill"
+                      className="absolute inset-0 bg-gradient-to-r from-[#D4AF37] to-[#C5A059] rounded-lg -z-10 shadow-md shadow-[#C5A059]/25"
+                      transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                    />
+                  )}
+                  <span>{p.name}</span>
+                </button>
+                {isActive && (
+                  <div className="flex items-center gap-0.5 ml-1 mr-1.5 z-10">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setDeleteError('');
-                        setPortfolioToDelete({ id: p.id, name: p.name });
+                        setSelectedRenamePortfolio(p);
+                        setIsRenameModalOpen(true);
                       }}
-                      className="text-[#6B7280] hover:text-red-500 transition-colors p-0.5 rounded hover:bg-[#1C1C1F]"
-                      title="刪除組合"
+                      className="text-[#0A0A0C]/70 hover:text-[#0A0A0C] transition-colors p-1 rounded hover:bg-black/10"
+                      title="修改組合名稱"
                     >
-                      <Trash2 size={12} />
+                      <Edit2 size={12} />
                     </button>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+                    {portfolios.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteError('');
+                          setPortfolioToDelete({ id: p.id, name: p.name });
+                        }}
+                        className="text-[#0A0A0C]/70 hover:text-red-950 transition-colors p-1 rounded hover:bg-black/10"
+                        title="刪除組合"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <button 
             disabled={!!pendingAction || isLoadingPortfolios}
             onClick={() => setIsPortfolioModalOpen(true)} 
-            className="px-3 py-1.5 rounded border border-dashed border-[#333333] text-[#6B7280] hover:text-[#E5E7EB] text-sm flex-shrink-0 flex items-center gap-1 transition-colors"
+            className="px-3 py-1.5 rounded-lg border border-dashed border-white/20 text-[#9CA3AF] hover:text-white hover:border-[#C5A059]/60 text-xs flex-shrink-0 flex items-center gap-1.5 transition-all ml-1"
           >
             <Plus size={14}/> 組合
           </button>
-          <div className="flex-1 min-w-[20px]"></div>
+          <div className="flex-1 min-w-[12px]"></div>
           <button 
             onClick={() => setActiveTab('compare')}
-            className={cn("px-4 py-2 rounded-lg text-sm flex-shrink-0 flex items-center gap-2 transition-colors", 
+            className={cn(
+              "relative px-3.5 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 flex items-center gap-1.5 transition-colors z-10", 
               activeTab === 'compare' 
-                ? "bg-[#1C1C1F] text-[#C5A059]" 
-                : "text-[#6B7280] hover:text-[#E5E7EB]"
+                ? "text-[#0A0A0C] font-semibold" 
+                : "text-[#9CA3AF] hover:text-[#F3F4F6] hover:bg-white/5"
             )}
           >
-            <LayoutGrid size={16}/> 橫向比較
+            {activeTab === 'compare' && (
+              <motion.div
+                layoutId="activePortfolioPill"
+                className="absolute inset-0 bg-gradient-to-r from-[#D4AF37] to-[#C5A059] rounded-lg -z-10 shadow-md shadow-[#C5A059]/25"
+                transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+              />
+            )}
+            <LayoutGrid size={14}/> 橫向比較
           </button>
         </div>
 
@@ -678,8 +737,12 @@ function App() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
               {portfolioSummaries.map(p => (
-                 <div 
+                 <motion.div 
                    key={p.id} 
+                   layout
+                   initial={{ opacity: 0, y: 15 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   whileHover={{ y: -3, transition: { duration: 0.15 } }}
                    draggable={!pendingAction}
                    onDragStart={(e) => handleDragStart(e, p.id)}
                    onDragOver={(e) => handleDragOver(e, p.id)}
@@ -687,157 +750,197 @@ function App() {
                    onDrop={(e) => handleDrop(e, p.id)}
                    onDragEnd={handleDragEnd}
                    className={cn(
-                     "card-bg rounded-lg p-6 relative border transition-all cursor-grab active:cursor-grabbing",
+                     "card-bg card-hover rounded-xl p-6 relative border transition-all cursor-grab active:cursor-grabbing overflow-hidden",
                      draggedId === p.id 
                        ? "opacity-30 border-dashed border-[#C5A059]" 
                        : (dragOverId === p.id 
                            ? "border-[#C5A059] bg-[#141417] scale-[1.01]" 
-                           : "border-[#222226]")
+                           : "border-white/8 hover:border-[#C5A059]/30")
                    )}
                  >
-                    <div className="flex items-center gap-2 mb-6 border-b border-[#222226]/40 pb-3">
-                      <GripVertical size={16} className="text-[#6B7280] flex-shrink-0" />
+                    <div className="flex items-center gap-2 mb-6 border-b border-white/8 pb-3">
+                      <GripVertical size={16} className="text-[#9CA3AF] flex-shrink-0" />
                       <h3 className="text-xl serif gold-text font-medium flex-1 truncate">{p.name}</h3>
                     </div>
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center pb-2 border-b border-[#222226]/50">
-                        <span className="label-text text-[#6B7280]">總投入成本</span>
-                        <span className="font-mono text-[#E5E7EB]">{formatCurrency(p.summary.totalCost)}</span>
+                      <div className="flex justify-between items-center pb-2 border-b border-white/6">
+                        <span className="label-text text-[#9CA3AF]">總投入成本</span>
+                        <span className="font-mono text-[#E5E7EB] tabular-nums">{formatCurrency(p.summary.totalCost)}</span>
                       </div>
-                      <div className="flex justify-between items-center pb-2 border-b border-[#222226]/50">
-                        <span className="label-text text-[#6B7280]">目前總市值</span>
-                        <span className="font-mono text-lg">{formatCurrency(p.summary.totalValue)}</span>
+                      <div className="flex justify-between items-center pb-2 border-b border-white/6">
+                        <span className="label-text text-[#9CA3AF]">目前總市值</span>
+                        <span className="font-mono text-lg tabular-nums text-[#F3F4F6] font-medium">{formatCurrency(p.summary.totalValue)}</span>
                       </div>
-                      <div className="flex justify-between items-center pb-2 border-b border-[#222226]/50">
-                        <span className="label-text text-[#6B7280]">總投資報酬</span>
+                      <div className="flex justify-between items-center pb-2 border-b border-white/6">
+                        <span className="label-text text-[#9CA3AF]">總投資報酬</span>
                         <div className="text-right">
-                          <p className={cn("font-mono text-lg", p.summary.totalReturn >= 0 ? "text-[#4ADE80]" : "text-[#F87171]")}>
+                          <p className={cn("font-mono text-lg tabular-nums font-medium", p.summary.totalReturn >= 0 ? "text-[#34D399]" : "text-[#F87171]")}>
                             {p.summary.totalReturn > 0 ? '+' : ''}{formatCurrency(p.summary.totalReturn)}
                           </p>
-                          <p className={cn("text-xs font-mono", p.summary.totalReturnPercent >= 0 ? "text-[#4ADE80]" : "text-[#F87171]")}>
+                          <p className={cn("text-xs font-mono tabular-nums", p.summary.totalReturnPercent >= 0 ? "text-[#34D399]" : "text-[#F87171]")}>
                              {formatPercent(p.summary.totalReturnPercent)}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="mt-6 pt-4 border-t border-[#222226]">
-                      <h4 className="label-text mb-3 flex items-center gap-2 text-[#6B7280]">主要持股 ({p.positions.length})</h4>
+                    <div className="mt-6 pt-4 border-t border-white/8">
+                      <h4 className="label-text mb-3 flex items-center gap-2 text-[#9CA3AF]">主要持股 ({p.positions.length})</h4>
                       <div className="space-y-2">
                         {p.positions.slice(0, 3).map(pos => (
                           <div key={pos.id} className="flex justify-between items-center text-sm">
                             <span className="text-[#E5E7EB]">{pos.symbol.replace(/\.TW(O)?$/, '')}</span>
-                            <span className="text-[#6B7280] font-mono">{pos.shares} 股</span>
+                            <span className="text-[#9CA3AF] font-mono">{pos.shares} 股</span>
                           </div>
                         ))}
                       </div>
-                      {p.positions.length > 3 && <p className="text-xs text-[#6B7280] mt-3">以及其他 {p.positions.length - 3} 檔...</p>}
-                      {p.positions.length === 0 && <p className="text-xs text-[#6B7280]">目前無持股部位</p>}
+                      {p.positions.length > 3 && <p className="text-xs text-[#9CA3AF] mt-3">以及其他 {p.positions.length - 3} 檔...</p>}
+                      {p.positions.length === 0 && <p className="text-xs text-[#9CA3AF]">目前無持股部位</p>}
                     </div>
-                 </div>
+                 </motion.div>
               ))}
             </div>
           </div>
         ) : (
           <>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-              <div className="flex bg-[#141417] border border-[#222226] rounded p-1 justify-center sm:justify-start">
+              {/* Sliding Pill Sub-Tabs */}
+              <div className="flex bg-[#121216]/90 border border-white/8 rounded-xl p-1 justify-center sm:justify-start backdrop-blur-md shadow-xs">
                 <button
                   onClick={() => setActiveTab('active')}
-                  className={cn("px-4 py-1.5 text-sm rounded transition-colors whitespace-nowrap", activeTab === 'active' ? "bg-[#1C1C1F] text-[#C5A059] shadow-sm font-medium" : "text-[#6B7280] hover:text-[#E5E7EB]")}
+                  className={cn(
+                    "relative px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap z-10",
+                    activeTab === 'active' ? "text-[#0A0A0C] font-semibold" : "text-[#9CA3AF] hover:text-white"
+                  )}
                 >
-                  現有持倉
+                  {activeTab === 'active' && (
+                    <motion.div
+                      layoutId="activeSubTabIndicator"
+                      className="absolute inset-0 bg-gradient-to-r from-[#D4AF37] to-[#C5A059] rounded-lg -z-10 shadow-sm"
+                      transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                    />
+                  )}
+                  現有持倉 ({positions.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('closed')}
-                  className={cn("px-4 py-1.5 text-sm rounded transition-colors whitespace-nowrap", activeTab === 'closed' ? "bg-[#1C1C1F] text-[#C5A059] shadow-sm font-medium" : "text-[#6B7280] hover:text-[#E5E7EB]")}
+                  className={cn(
+                    "relative px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap z-10",
+                    activeTab === 'closed' ? "text-[#0A0A0C] font-semibold" : "text-[#9CA3AF] hover:text-white"
+                  )}
                 >
-                  已平倉
+                  {activeTab === 'closed' && (
+                    <motion.div
+                      layoutId="activeSubTabIndicator"
+                      className="absolute inset-0 bg-gradient-to-r from-[#D4AF37] to-[#C5A059] rounded-lg -z-10 shadow-sm"
+                      transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                    />
+                  )}
+                  已平倉 ({closedPositions.length})
                 </button>
               </div>
+
               {activeTab === 'active' && (
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <button disabled={!activePortfolio || !!pendingAction} onClick={() => setIsImportOpen(true)} className="px-3 py-2 rounded border border-[#C5A059] text-[#C5A059] text-sm disabled:opacity-40">匯入文字／表格</button>
+                <div className="flex flex-wrap gap-2.5 justify-end items-center">
+                  <button 
+                    disabled={!activePortfolio || !!pendingAction} 
+                    onClick={() => setIsImportOpen(true)} 
+                    className="action-btn-secondary px-3 py-1.5 text-xs sm:text-sm flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    <FileSpreadsheet size={15} className="text-[#C5A059]" />
+                    匯入文字／表格
+                  </button>
                   <button 
                     onClick={fetchQuotes}
                     disabled={isRefreshing || positions.length === 0}
-                    className="p-2 rounded border border-[#222226] bg-[#141417] text-[#E5E7EB] hover:bg-[#1C1C1F] transition-colors disabled:opacity-50"
-                    title="更新報價"
+                    className="p-2 rounded-lg border border-white/10 bg-[#141417]/80 hover:bg-white/5 text-[#E5E7EB] hover:border-[#C5A059]/40 transition-colors disabled:opacity-40"
+                    title="更新即時報價"
                   >
-                    <RefreshCw size={18} className={cn(isRefreshing && "animate-spin")} />
+                    <RefreshCw size={16} className={cn(isRefreshing && "animate-spin text-[#C5A059]")} />
                   </button>
-                  <button 
+                  <motion.button 
+                    whileTap={{ scale: 0.98 }}
                     disabled={!activePortfolio || !!pendingAction}
                     onClick={() => setIsModalOpen(true)}
-                    className="flex items-center justify-center gap-2 action-btn shadow-sm py-2 px-4 text-sm"
+                    className="action-btn py-1.5 px-3.5 text-xs sm:text-sm font-semibold shadow-md flex items-center gap-1.5 disabled:opacity-40"
                   >
                     <Plus size={16} />
                     新增部位
-                  </button>
+                  </motion.button>
                 </div>
               )}
             </div>
 
-            {/* Dashboard Summary */}
+            {/* Dashboard Summary Bento Cards */}
             {activeTab === 'active' ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                <div className="card-bg rounded-lg p-6">
-                  <div className="flex items-center gap-2 label-text mb-2">
-                    <Wallet size={16} />
-                    投入總成本
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+                <div className="card-bg card-hover rounded-xl p-5 border border-white/8 relative overflow-hidden group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="label-text text-[#9CA3AF]">投入總成本</span>
+                    <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[#9CA3AF] group-hover:text-[#C5A059] transition-colors">
+                      <Wallet size={16} />
+                    </div>
                   </div>
-                  <p className="text-2xl font-light serif text-[#E5E7EB]">
+                  <p className="text-2xl sm:text-3xl font-light serif text-[#F3F4F6] tabular-nums tracking-tight">
                     {formatCurrency(summary.totalCost)}
                   </p>
                 </div>
                 
-                <div className="card-bg rounded-lg p-6">
-                  <div className="flex items-center gap-2 label-text mb-2">
-                    <Activity size={16} />
-                    目前總市值
+                <div className="card-bg card-hover rounded-xl p-5 border border-white/8 relative overflow-hidden group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="label-text text-[#9CA3AF]">目前總市值</span>
+                    <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[#9CA3AF] group-hover:text-[#C5A059] transition-colors">
+                      <Activity size={16} />
+                    </div>
                   </div>
-                  <p className="text-2xl font-light serif text-[#E5E7EB]">
+                  <p className="text-2xl sm:text-3xl font-light serif text-[#F3F4F6] tabular-nums tracking-tight">
                     {formatCurrency(summary.totalValue)}
                   </p>
                 </div>
 
-                <div className="card-bg rounded-lg p-6">
-                  <div className="flex items-center gap-2 label-text mb-2">
-                    {isOverallPositive ? <TrendingUp size={16} className="text-[#4ADE80]" /> : <TrendingDown size={16} className="text-[#F87171]" />}
-                    總投資報酬率
+                <div className="card-bg card-hover rounded-xl p-5 border border-white/8 relative overflow-hidden group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="label-text text-[#9CA3AF]">總投資報酬</span>
+                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border", isOverallPositive ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : (summary.totalReturn < 0 ? "bg-rose-500/10 border-rose-500/20 text-rose-400" : "bg-white/5 border-white/10 text-zinc-400"))}>
+                      {isOverallPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                    </div>
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <p className={cn("text-2xl font-light serif", isOverallPositive ? "green-glow" : (summary.totalReturn < 0 ? "red-glow" : "text-[#E5E7EB]"))}>
+                  <div className="flex items-baseline justify-between flex-wrap gap-2">
+                    <p className={cn("text-2xl sm:text-3xl font-medium serif tabular-nums tracking-tight", isOverallPositive ? "green-glow" : (summary.totalReturn < 0 ? "red-glow" : "text-[#E5E7EB]"))}>
                       {isOverallPositive && summary.totalReturn > 0 ? '+' : ''}{formatCurrency(summary.totalReturn)}
                     </p>
-                    <span className={cn("text-sm font-light serif", isOverallPositive ? "green-glow" : (summary.totalReturnPercent < 0 ? "red-glow" : "text-[#E5E7EB]"))}>
-                       ({formatPercent(summary.totalReturnPercent)})
+                    <span className={cn("text-xs font-mono font-medium px-2.5 py-0.5 rounded-full border shadow-xs", isOverallPositive ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" : (summary.totalReturnPercent < 0 ? "bg-rose-500/15 border-rose-500/30 text-rose-400" : "bg-zinc-800 border-zinc-700 text-zinc-300"))}>
+                      {formatPercent(summary.totalReturnPercent)}
                     </span>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                <div className="card-bg rounded-lg p-6">
-                  <div className="flex items-center gap-2 label-text mb-2">
-                    <Wallet size={16} />
-                    平倉總成本
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+                <div className="card-bg card-hover rounded-xl p-5 border border-white/8 relative overflow-hidden group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="label-text text-[#9CA3AF]">平倉總成本</span>
+                    <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[#9CA3AF] group-hover:text-[#C5A059] transition-colors">
+                      <Wallet size={16} />
+                    </div>
                   </div>
-                  <p className="text-2xl font-light serif text-[#E5E7EB]">
+                  <p className="text-2xl sm:text-3xl font-light serif text-[#F3F4F6] tabular-nums tracking-tight">
                     {formatCurrency(closedSummary.totalCost)}
                   </p>
                 </div>
                 
-                <div className="card-bg rounded-lg p-6">
-                  <div className="flex items-center gap-2 label-text mb-2">
-                    {isClosedPositive ? <TrendingUp size={16} className="text-[#4ADE80]" /> : <TrendingDown size={16} className="text-[#F87171]" />}
-                    已實現總損益
+                <div className="card-bg card-hover rounded-xl p-5 border border-white/8 relative overflow-hidden group">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="label-text text-[#9CA3AF]">已實現總損益</span>
+                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border", isClosedPositive ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : (closedSummary.totalRealized < 0 ? "bg-rose-500/10 border-rose-500/20 text-rose-400" : "bg-white/5 border-white/10 text-zinc-400"))}>
+                      {isClosedPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                    </div>
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <p className={cn("text-2xl font-light serif", isClosedPositive ? "green-glow" : (closedSummary.totalRealized < 0 ? "red-glow" : "text-[#E5E7EB]"))}>
+                  <div className="flex items-baseline justify-between flex-wrap gap-2">
+                    <p className={cn("text-2xl sm:text-3xl font-medium serif tabular-nums tracking-tight", isClosedPositive ? "green-glow" : (closedSummary.totalRealized < 0 ? "red-glow" : "text-[#E5E7EB]"))}>
                       {isClosedPositive && closedSummary.totalRealized > 0 ? '+' : ''}{formatCurrency(closedSummary.totalRealized)}
                     </p>
-                    <span className={cn("text-sm font-light serif", isClosedPositive ? "green-glow" : (closedSummaryPercent < 0 ? "red-glow" : "text-[#E5E7EB]"))}>
-                       ({formatPercent(closedSummaryPercent)})
+                    <span className={cn("text-xs font-mono font-medium px-2.5 py-0.5 rounded-full border shadow-xs", isClosedPositive ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" : (closedSummaryPercent < 0 ? "bg-rose-500/15 border-rose-500/30 text-rose-400" : "bg-zinc-800 border-zinc-700 text-zinc-300"))}>
+                      {formatPercent(closedSummaryPercent)}
                     </span>
                   </div>
                 </div>
@@ -855,56 +958,79 @@ function App() {
               
               {activeTab === 'active' ? (
                 positions.length === 0 ? (
-                  <div className="card-bg border-dashed border-[#333333] rounded-lg p-12 text-center">
-                    <div className="w-16 h-16 bg-[#1C1C1F] text-[#6B7280] rounded-full border border-[#333333] flex items-center justify-center mx-auto mb-4">
-                      <Activity size={24} />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="card-bg border-dashed border-white/15 rounded-2xl p-12 text-center relative overflow-hidden"
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#1C1C22] to-[#121216] text-[#C5A059] rounded-2xl border border-white/10 flex items-center justify-center mx-auto mb-4 shadow-inner">
+                      <Activity size={26} className="text-[#C5A059]" />
                     </div>
-                    <h3 className="text-[#E5E7EB] font-serif text-lg mb-1">尚無股票部位</h3>
-                    <p className="text-[#6B7280] text-sm mb-6 max-w-sm mx-auto">
-                      開始新增您的第一筆模擬倉部位，輸入台股代號、股數與買進日期來觀察歷史投資報酬率。
+                    <h3 className="text-[#F3F4F6] font-serif text-xl mb-1.5 font-medium">尚無股票部位</h3>
+                    <p className="text-[#9CA3AF] text-sm mb-6 max-w-sm mx-auto leading-relaxed">
+                      開始新增您的第一筆模擬持倉，輸入台股代號、股數與買進日期來觀察真實歷史投資報酬率。
                     </p>
-                    <button 
-                      disabled={!activePortfolio || !!pendingAction}
-                      onClick={() => setIsModalOpen(true)}
-                      className="gold-text hover:opacity-80 transition-colors inline-flex items-center gap-2 uppercase tracking-wider text-sm font-medium border border-[#C5A059]/30 rounded px-4 py-2"
-                    >
-                      <Plus size={16} /> 新增模擬部位
-                    </button>
-                  </div>
+                    <div className="flex justify-center gap-3 flex-wrap">
+                      <motion.button 
+                        whileTap={{ scale: 0.98 }}
+                        disabled={!activePortfolio || !!pendingAction}
+                        onClick={() => setIsModalOpen(true)}
+                        className="action-btn text-xs sm:text-sm font-semibold shadow-md flex items-center gap-2"
+                      >
+                        <Plus size={16} /> 新增模擬部位
+                      </motion.button>
+                      <button 
+                        disabled={!activePortfolio || !!pendingAction}
+                        onClick={() => setIsImportOpen(true)}
+                        className="action-btn-secondary text-xs sm:text-sm flex items-center gap-1.5"
+                      >
+                        <FileSpreadsheet size={15} className="text-[#C5A059]" />
+                        批量匯入持倉
+                      </button>
+                    </div>
+                  </motion.div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {groupedPositions.map((pos) => (
-                      <PositionCard 
-                        key={pos.symbol} 
-                        position={pos} 
-                        quote={quotes[pos.symbol] || quotes[pos.symbol + '.TW'] || quotes[pos.symbol + '.TWO']}
-                        onRemove={handleRemovePosition}
-                        onSell={(position, currentPrice) => setSellModalData({ position, currentPrice })}
-                      />
-                    ))}
-                  </div>
+                  <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <AnimatePresence mode="popLayout">
+                      {groupedPositions.map((pos) => (
+                        <PositionCard 
+                          key={pos.symbol} 
+                          position={pos} 
+                          quote={quotes[pos.symbol] || quotes[pos.symbol + '.TW'] || quotes[pos.symbol + '.TWO']}
+                          onRemove={handleRemovePosition}
+                          onSell={(position, currentPrice) => setSellModalData({ position, currentPrice })}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
                 )
               ) : (
                 closedPositions.length === 0 ? (
-                  <div className="card-bg border-dashed border-[#333333] rounded-lg p-12 text-center">
-                    <div className="w-16 h-16 bg-[#1C1C1F] text-[#6B7280] rounded-full border border-[#333333] flex items-center justify-center mx-auto mb-4">
-                      <Activity size={24} />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="card-bg border-dashed border-white/15 rounded-2xl p-12 text-center"
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#1C1C22] to-[#121216] text-[#9CA3AF] rounded-2xl border border-white/10 flex items-center justify-center mx-auto mb-4 shadow-inner">
+                      <Activity size={26} className="text-[#9CA3AF]" />
                     </div>
-                    <h3 className="text-[#E5E7EB] font-serif text-lg mb-1">尚無平倉紀錄</h3>
-                    <p className="text-[#6B7280] text-sm mb-6 max-w-sm mx-auto">
-                      當您從現有持倉中平倉(賣出)後，紀錄會顯示在這裡。
+                    <h3 className="text-[#F3F4F6] font-serif text-xl mb-1.5 font-medium">尚無平倉紀錄</h3>
+                    <p className="text-[#9CA3AF] text-sm mb-4 max-w-sm mx-auto leading-relaxed">
+                      當您從現有持倉中平倉(賣出)後，損益與已實現報酬紀錄會自動歸檔顯示在此處。
                     </p>
-                  </div>
+                  </motion.div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {closedPositions.map((pos) => (
-                      <ClosedPositionCard 
-                        key={pos.id} 
-                        position={pos}
-                        onRemove={handleRemoveClosedPosition}
-                      />
-                    ))}
-                  </div>
+                  <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <AnimatePresence mode="popLayout">
+                      {closedPositions.map((pos) => (
+                        <ClosedPositionCard 
+                          key={pos.id} 
+                          position={pos}
+                          onRemove={handleRemoveClosedPosition}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
                 )
               )}
             </div>

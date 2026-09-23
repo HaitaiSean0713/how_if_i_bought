@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { motion } from 'motion/react';
+import { X, TrendingDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { Position } from '../types';
@@ -73,32 +74,44 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4"
       onMouseDown={(e) => {
         if (!isLoading && e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="card-bg rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+        className="card-bg rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-[#26262B]"
+      >
         <div className="flex justify-between items-center p-6 border-b border-[#222226]">
-          <h2 className="text-xl serif gold-text">平倉 (賣出)</h2>
-          <button onClick={onClose} disabled={isLoading} aria-label="關閉" className="text-[#6B7280] hover:text-[#E5E7EB] transition-colors">
-            <X size={24} />
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
+              <TrendingDown size={20} />
+            </div>
+            <h2 className="text-xl serif gold-text">部位平倉 (賣出)</h2>
+          </div>
+          <button onClick={onClose} disabled={isLoading} aria-label="關閉" className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#E5E7EB] hover:bg-white/5 transition-colors">
+            <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && (
-            <div className="p-3 bg-red-900/20 text-[#F87171] text-sm rounded border border-red-900/50">
+            <div className="p-3 bg-red-900/20 text-[#F87171] text-sm rounded-xl border border-red-900/50">
               {error}
             </div>
           )}
           
-          <div className="mb-4">
-            <p className="text-[#E5E7EB] serif">{position.symbol.replace(/\.TW(O)?$/, '')}</p>
-            <p className="text-sm text-[#6B7280]">持有股數: {position.shares.toLocaleString()}</p>
-            <p className="text-sm text-[#6B7280]">買進均價: {position.buyPrice}</p>
+          <div className="p-3.5 rounded-xl bg-white/[0.02] border border-[#222226] space-y-1">
+            <p className="text-sm font-semibold text-[#E5E7EB] serif">{position.symbol.replace(/\.TW(O)?$/, '')}</p>
+            <div className="flex justify-between text-xs text-[#9CA3AF]">
+              <span>持有股數: <strong className="font-mono text-white">{position.shares.toLocaleString()}</strong> 股</span>
+              <span>買進均價: <strong className="font-mono text-white">${position.buyPrice}</strong></span>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -172,7 +185,7 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }
