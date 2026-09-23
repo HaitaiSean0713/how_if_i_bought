@@ -731,7 +731,7 @@ function App() {
                   onClick={() => setActiveTab('active')}
                   className={cn("px-4 py-1.5 text-sm rounded transition-colors whitespace-nowrap", activeTab === 'active' ? "bg-[#1C1C1F] text-[#C5A059] shadow-sm font-medium" : "text-[#6B7280] hover:text-[#E5E7EB]")}
                 >
-                  現有持仓
+                  現有持倉
                 </button>
                 <button
                   onClick={() => setActiveTab('closed')}
