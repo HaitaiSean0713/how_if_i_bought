@@ -1,4 +1,4 @@
-import { selectHistoricalQuote, validHistoricalDate, historicalRange } from '../src/lib/historical';
+import { selectHistoricalQuote, validHistoricalDate, historicalRange } from '../src/lib/historical.js';
 import express from "express";
 import YahooFinance from 'yahoo-finance2';
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
