@@ -199,4 +199,65 @@ app.post("/api/quotes", async (req, res) => {
   }
 });
 
+app.post("/api/ai/parse-holdings", async (req, res) => {
+  try {
+    const { text, imageBase64, mimeType, defaultDate, defaultAction } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(400).json({ error: 'GEMINI_API_KEY 未設定，無法使用 AI 深度辨識。' });
+    }
+
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey });
+
+    const contents: any[] = [];
+
+    const prompt = `你是專業的台股與美股投資持倉交易解析助手。請分析使用者輸入的交易文字或對帳單圖片/截圖，並精確提取出每筆持倉變更或交易紀錄。
+
+規則：
+1. 每筆紀錄包含：
+   - symbol: 股票代號或名稱，儘量輸出標準代號（例如 2330、0050、6488.TWO、AAPL）。如果是中文名稱請盡可能轉換為台股代號（例如 台積電 -> 2330）。
+   - shares: 成交或持有的總股數（例如 1張 -> 1000，1000股 -> 1000）。純數字字串。
+   - price: 每股價格或平均成本（純數字字串，不要包含元或$）。若無法得知請留空字串。
+   - date: 交易日期 (格式 YYYY-MM-DD)，若未標示請預設填入 "${defaultDate || ''}"。西元與民國日期皆請轉換為西元 YYYY-MM-DD。
+   - action: 操作類型，必須為 "buy" (買進/新增), "sell" (賣出/平倉), "set" (設定總持股/庫存調整), 或 "delete" (刪除/清空)。預設操作為 "${defaultAction || 'set'}"。
+   - source: 該筆資料的原始摘要文字。
+2. 若使用者上傳的是手機券商 App 持倉或對帳單截圖，請仔細辨識圖片中每檔股票的名稱/代號、股數、成本均價或成交價、交易日期與買賣別。
+3. 請輸出 JSON 陣列格式。`;
+
+    contents.push(prompt);
+
+    if (imageBase64) {
+      const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '');
+      contents.push({
+        inlineData: {
+          mimeType: mimeType || 'image/png',
+          data: cleanBase64
+        }
+      });
+    }
+
+    if (text) {
+      contents.push(`使用者輸入內容：\n${text}`);
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents,
+      config: {
+        responseMimeType: 'application/json',
+      }
+    });
+
+    const jsonText = response.text || '[]';
+    const parsed = JSON.parse(jsonText);
+    res.json({ rows: parsed });
+  } catch (error: any) {
+    console.error('[API] AI parse holdings error:', error.message);
+    res.status(500).json({ error: error.message || 'AI 解析失敗' });
+  }
+});
+
 export default app;
+

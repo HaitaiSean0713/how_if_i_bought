@@ -32,13 +32,17 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
         throw new Error('請輸入有效的股數 (例如: 1000代表一張)');
       }
 
+      const { resolveStockSymbol } = await import('../lib/taiwanStocks');
+      const resolved = resolveStockSymbol(symbol);
+      const querySymbol = resolved ? resolved.symbol : symbol.toUpperCase();
+
       // Fetch historical data to get buy price
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
       let response: Response;
       try {
-        response = await fetch(`/api/historical/${symbol}/${buyDate}?t=${Date.now()}`, {
+        response = await fetch(`/api/historical/${encodeURIComponent(querySymbol)}/${buyDate}?t=${Date.now()}`, {
           signal: controller.signal
         });
       } catch (fetchErr: any) {
@@ -62,8 +66,8 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
       }
 
       await onAdd({
-        symbol: historicalData.actualSymbol || symbol.toUpperCase(),
-        shortName: historicalData.shortName,
+        symbol: historicalData.actualSymbol || querySymbol,
+        shortName: resolved?.shortName || historicalData.shortName,
         shares: parsedShares,
         buyDate,
         buyPrice: historicalData.close,
@@ -111,13 +115,13 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
               <input
                 type="text"
                 value={symbol}
-                onChange={(e) => setSymbol(e.target.value.replace(/[^a-zA-Z0-9\.\-\^]/g, ''))}
-                placeholder="例如: 2330"
+                onChange={(e) => setSymbol(e.target.value)}
+                placeholder="例如: 2330 或 台積電"
                 className="input-field transition-colors focus:border-[#C5A059] outline-none uppercase placeholder:normal-case placeholder:text-[#6B7280]/50"
                 required
               />
             </div>
-            <p className="text-xs text-[#6B7280]">台股請直接輸入代號 (例如 2330)</p>
+            <p className="text-xs text-[#6B7280]">可直接輸入股票代號（例如 2330）或中文名稱（例如 台積電、元大台灣50）</p>
           </div>
 
           <div className="space-y-1.5">

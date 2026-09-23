@@ -57,7 +57,7 @@ test('Invalid or oversold batches never change the input portfolio', () => {
   const rows = parse('買進 0050 1000 股，每股 150 元\n賣出 2330 9999 股，每股 1500 元');
   assert.throws(() => planHoldingImport(original, rows, 'batch', now), /第 2 筆/);
   assert.equal(holdingsVersion(original),version);
-  for (const value of ['2027/01/01 買進 2330 1000 股，每股 600 元','買進 台積電 1000 股，每股 600 元','2330 1000 股','買進 2330 1000 股，每股 -600 元']) {
+  for (const value of ['2027/01/01 買進 2330 1000 股，每股 600 元','2330 1000 股','買進 2330 1000 股，每股 -600 元']) {
     assert.throws(() => planHoldingImport(base(), parse(value), 'batch', now));
   }
 });
@@ -69,4 +69,33 @@ test('Delete and sequential buy/sell operations have explicit preview changes', 
   assert.throws(()=>planHoldingImport(base(),parse('刪除 6488'),'batch',now),/沒有/);
   assert.equal(parse('刪除持股 0050')[0].action,'delete');
   assert.equal(parse('設定總持股 0050 1000 股，均價 150 元')[0].action,'set');
+});
+
+test('Taiwan stock names, concise space formats, and broker statement actions are parsed accurately', () => {
+  // Chinese stock name resolution even when not in portfolio
+  const tsmc = parse('2024-06-03 買進 台積電 1000 股 600元', 'buy')[0];
+  assert.equal(tsmc.symbol, '2330');
+  assert.equal(tsmc.shares, '1000');
+  assert.equal(tsmc.price, '600');
+
+  const etf = parse('買進 元大台灣50 2 張 150 元', 'buy')[0];
+  assert.equal(etf.symbol, '0050');
+  assert.equal(etf.shares, '2000');
+
+  // Concise 3-token space separated line
+  const concise = parse('2330 1000 600', 'buy')[0];
+  assert.equal(concise.symbol, '2330');
+  assert.equal(concise.shares, '1000');
+  assert.equal(concise.price, '600');
+
+  // Taiwanese broker actions and compact dates
+  const broker = parse('1130603 現股買進 2330 1,000 600.00')[0];
+  assert.equal(broker.symbol, '2330');
+  assert.equal(broker.action, 'buy');
+  assert.equal(broker.date, '2024-06-03');
+
+  const period = parse('零股買進 6488 500 股 @950', 'buy')[0];
+  assert.equal(period.symbol, '6488');
+  assert.equal(period.action, 'buy');
+  assert.equal(period.price, '950');
 });

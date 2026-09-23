@@ -1,6 +1,7 @@
 import type { Portfolio, Position } from '../types';
 import { validHistoricalDate, taiwanDate } from './historical';
 import { sellPosition } from './portfolioOperations';
+import { resolveStockSymbol, TAIWAN_STOCKS, STOCK_ALIASES } from './taiwanStocks';
 
 export type ImportAction = 'set' | 'buy' | 'sell' | 'delete';
 export const actionLabels: Record<ImportAction, string> = { set: '設定總持股', buy: '買進', sell: '賣出', delete: '刪除持股' };
@@ -15,41 +16,57 @@ export const holdingsVersion = (p: Portfolio) => JSON.stringify([p.id, p.positio
 function clean(value: unknown): string {
   return String(value ?? '').normalize('NFKC').trim();
 }
+
 export function importDate(value: unknown, fallback: string): string {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   const raw = clean(value);
   if (!raw) return fallback;
+
   const match = raw.match(/^(?:民國)?(\d{3,4})[年/.-](\d{1,2})[月/.-](\d{1,2})日?$/);
-  if (!match) return raw;
-  let year = Number(match[1]);
-  if (match[1].length === 3) year += 1911;
-  return `${year}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+  if (match) {
+    let year = Number(match[1]);
+    if (match[1].length === 3) year += 1911;
+    return `${year}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+  }
+
+  const compact8 = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compact8) return `${compact8[1]}-${compact8[2]}-${compact8[3]}`;
+
+  const compact7 = raw.match(/^(\d{3})(\d{2})(\d{2})$/);
+  if (compact7) return `${Number(compact7[1]) + 1911}-${compact7[2]}-${compact7[3]}`;
+
+  return raw;
 }
+
 export function importQuantity(value: unknown, lots = false): string {
   const raw = clean(value).replace(/,/g, '');
-  const match = raw.match(/^([\d.]+)\s*(股|張)?$/);
+  const match = raw.match(/^([+-]?[\d.]+)\s*(股|張)?$/);
   if (!match) return raw;
-  return String(Number(match[1]) * (match[2] === '張' || (lots && !match[2]) ? 1000 : 1));
+  const num = Number(match[1]) * (match[2] === '張' || (lots && !match[2]) ? 1000 : 1);
+  return String(num);
 }
+
 function importPrice(value: unknown) {
   return clean(value).replace(/^(?:NT\$|NTD|TWD|\$)\s*/i, '').replace(/元$/, '').replace(/,/g, '').trim();
 }
+
 function importAction(value: unknown, fallback: ImportAction): string {
   const action = clean(value).toLowerCase();
   if (!action) return fallback;
-  if (/^(buy|買|買進|買入|新增|新增持倉|加碼|加買|增加|增持)$/.test(action)) return 'buy';
-  if (/^(sell|賣|賣出|賣掉|減碼|減少|減持|平倉)$/.test(action)) return 'sell';
-  if (/^(set|設定|設定總持股|調整|修改|更新|持有|持股|持倉|庫存|增加到|減少到|增加為|減少為|設為|改為|改成)$/.test(action)) return 'set';
-  if (/^(delete|remove|刪除|刪除持股|移除)$/.test(action)) return 'delete';
+  if (/^(buy|買|買進|買入|新增|新增持倉|加碼|加買|增加|增持|建倉|進場|補進|補倉|買超|現股買進|現買|融資買進|資買|融資買|零股買進|零買|定期定額|\+)$/i.test(action)) return 'buy';
+  if (/^(sell|賣|賣出|賣掉|減碼|減少|減持|平倉|出場|出清|砍掉|賣超|現股賣出|現賣|融資賣出|資賣|融資賣|零股賣出|零賣|-)$/i.test(action)) return 'sell';
+  if (/^(set|設定|設定總持股|調整|調整為|調整成|修改|更新|持有|持股|持倉|庫存|增加到|減少到|增加為|減少為|設為|改為|改成)$/i.test(action)) return 'set';
+  if (/^(delete|remove|刪除|刪除持股|移除|清空|清除)$/i.test(action)) return 'delete';
   return action;
 }
+
 type Field = 'symbol' | 'shares' | 'price' | 'date' | 'action';
 const aliases: Record<Field, string[]> = {
-  symbol: ['股票代號', '股票代碼', '證券代號', '證券代碼', '代號', '代碼', '股票', 'symbol', 'ticker', 'stock'],
-  shares: ['股數', '持有股數', '持股數', '持股數量', '庫存股數', '庫存數量', '交易股數', '成交股數', '數量', '張數', 'shares', 'quantity', 'qty'],
-  price: ['價格', '買進價格', '買進均價', '買入價格', '成本均價', '平均成本', '成交價', '成交價格', '單價', '均價', '買價', '賣價', 'price', 'buyprice', 'costbasis'],
+  symbol: ['股票代號', '股票代碼', '證券代號', '證券代碼', '代號', '代碼', '股票', 'symbol', 'ticker', 'stock', '證券名稱', '商品名稱', '標的名稱', '股票名稱', '代號/名稱', '標的'],
+  shares: ['股數', '持有股數', '持股數', '持股數量', '庫存股數', '庫存數量', '交易股數', '成交股數', '數量', '張數', 'shares', 'quantity', 'qty', '數量(股)', '成交數量'],
+  price: ['價格', '買進價格', '買進均價', '買入價格', '成本均價', '平均成本', '成交價', '成交價格', '單價', '均價', '買價', '賣價', 'price', 'buyprice', 'costbasis', '成交單價', '成交均價'],
   date: ['日期', '買進日期', '買入日期', '交易日期', '成交日期', '賣出日期', 'date', 'buydate', 'tradedate'],
-  action: ['操作', '動作', '買賣', '交易別', '交易類型', 'action', 'type', 'side'],
+  action: ['操作', '動作', '買賣', '交易別', '交易類型', 'action', 'type', 'side', '買賣別', '委託別', '交易類別', '買/賣'],
 };
 const headerField = (value: unknown) => (Object.keys(aliases) as Field[]).find(key => aliases[key].includes(clean(value).replace(/[\s_]/g, '').toLowerCase()));
 
@@ -63,17 +80,21 @@ export function parseImportTable(data: unknown[][], defaultAction: ImportAction,
   if (body.length > MAX_IMPORT_ROWS) throw new Error(`每次最多匯入 ${MAX_IMPORT_ROWS} 筆。`);
   return body.filter(row => !row.every(cell => /^:?-{3,}:?$/.test(clean(cell)))).map((row, index) => {
     const get = (field: Field, fallbackIndex: number) => row[hasHeader ? fields.indexOf(field) : fallbackIndex];
+    const rawSymbol = clean(get('symbol', 0));
+    const resolved = resolveStockSymbol(rawSymbol);
+    const symbol = resolved ? resolved.symbol.replace(/\.TW(O)?$/, '') : rawSymbol.toUpperCase();
+
+    let shares = importQuantity(get('shares', 1), hasHeader && clean(rows[0][fields.indexOf('shares')]) === '張數');
+    let price = importPrice(get('price', 2));
+
     return {
       id: `row-${index}`, source: row.map(clean).join(' / '),
-      symbol: clean(get('symbol', 0)).toUpperCase(),
-      shares: importQuantity(get('shares', 1), hasHeader && clean(rows[0][fields.indexOf('shares')]) === '張數'),
-      price: importPrice(get('price', 2)), date: importDate(get('date', 3), defaultDate),
+      symbol, shares, price, date: importDate(get('date', 3), defaultDate),
       action: importAction(get('action', 4), defaultAction),
     };
   });
 }
 
-// RFC-style quoted cells, including embedded newlines and doubled quotes.
 export function parseDelimited(text: string, delimiter: string): string[][] {
   const rows: string[][] = []; let row: string[] = []; let cell = ''; let quoted = false;
   const input = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
@@ -97,29 +118,101 @@ export function parseImportText(text: string, defaultAction: ImportAction, defau
   if (new TextEncoder().encode(text).length > MAX_IMPORT_BYTES) throw new Error('文字太長，請拆成每次 2 MB 以內。');
   const input = text.normalize('NFKC').trim();
   if (!input) throw new Error('請先貼上文字或選取檔案。');
+
   const firstLine = input.split(/\r?\n/)[0];
   if (firstLine.includes('\t')) return parseImportTable(parseDelimited(input, '\t'), defaultAction, defaultDate);
   if (firstLine.includes('|')) return parseImportTable(input.split(/\r?\n/).filter(l => l.trim()).map(l => l.trim().replace(/^\||\|$/g, '').split('|')), defaultAction, defaultDate);
   if (firstLine.split(',').some(cell => headerField(cell)) || /^"?[A-Z0-9.^-]+"?,/i.test(firstLine)) return parseImportTable(parseDelimited(input, ','), defaultAction, defaultDate);
-  const lines = input.split(/[\n;；。]+/).map(s => s.trim()).filter(Boolean);
+
+  let rawLines = input.split(/[\n;；。]+/).map(s => s.trim()).filter(Boolean);
+
+  const lines: string[] = [];
+  for (const line of rawLines) {
+    if (line.includes('，') || line.includes(',')) {
+      const parts = line.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+      const verbRegex = /刪除|設定|買進|買入|賣出|賣掉|調整|\b(?:buy|sell|set|delete)\b/i;
+      const hasVerbs = parts.filter(p => verbRegex.test(p)).length;
+      if (hasVerbs >= 2 && parts.length === hasVerbs) {
+        lines.push(...parts);
+      } else {
+        lines.push(line);
+      }
+    } else {
+      lines.push(line);
+    }
+  }
+
   if (lines.length > MAX_IMPORT_ROWS) throw new Error(`每次最多匯入 ${MAX_IMPORT_ROWS} 筆。`);
   if (firstLine.split(/\s+/).some(cell => headerField(cell))) return parseImportTable(lines.map(l => l.split(/\s+/)), defaultAction, defaultDate);
+
   return lines.map((source, index) => {
-    // Mask dates and monetary/quantity values before finding the stock code.
-    const dateMatch = source.match(/(?:民國)?\d{3,4}[年/.-]\d{1,2}[月/.-]\d{1,2}日?/);
+    // Date matching (including compact 7-digit YYYMMDD and 8-digit YYYYMMDD)
+    const dateMatch = source.match(/(?:民國)?\d{3,4}[年/.-]\d{1,2}[月/.-]\d{1,2}日?|\b(?:1\d{6}|20\d{6})\b/);
+
+    // Quantity matching
     const quantities = [...source.matchAll(/(-?[\d,]+(?:\.\d+)?)\s*(股|張)/g)];
-    const quantity = quantities.length === 1 ? quantities[0] : quantities.length ? null : source.match(/(?:股數|數量)\s*[:：]?\s*(-?[\d,]+(?:\.\d+)?)/);
-    const price = source.match(/(?:每股|成本均價|均價|買價|賣價|單價|價格|成交價)\s*[:：]?\s*\$?(-?[\d,]+(?:\.\d+)?)/) || (!/總成本|總價|總金額/.test(source) ? source.match(/(-?[\d,]+(?:\.\d+)?)\s*元/) : null);
+    const quantityMatch = quantities.length === 1 ? quantities[0] : quantities.length ? null : source.match(/(?:股數|數量)\s*[:：]?\s*(-?[\d,]+(?:\.\d+)?)/);
+
+    // Price matching
+    const hasTotalCostText = /總成本|總價|總金額/.test(source);
+    const priceMatch = source.match(/(?:每股|成本均價|均價|買價|賣價|單價|價格|成交價|@)\s*[:：]?\s*\$?(-?[\d,]+(?:\.\d+)?)/) || (!hasTotalCostText ? source.match(/(-?[\d,]+(?:\.\d+)?)\s*元/) : null);
+
+    // Mask extracted date, quantity, and price
     let masked = source;
-    for (const match of [dateMatch, quantity, price]) if (match) masked = masked.replace(match[0], ' ');
+    for (const match of [dateMatch, quantityMatch, priceMatch]) if (match) masked = masked.replace(match[0], ' ');
+
+    // Find codes
     const codes = masked.match(/(?<![A-Za-z0-9])(?:\d{4,6}[A-Za-z]?(?:\.TW(?:O)?)?|[A-Za-z][A-Za-z0-9.-]{0,11})(?![A-Za-z0-9])/g)?.filter(s => !/^(buy|sell|set|delete|remove|NTD|TWD)$/i.test(s)) || [];
+
+    // Find existing position by shortName or taiwanStocks dictionary
     const existing = portfolio.positions.filter(p => p.shortName && source.includes(p.shortName));
-    const symbol = codes.length === 1 ? codes[0].toUpperCase() : !codes.length && new Set(existing.map(p => p.symbol)).size === 1 ? existing[0].symbol : '';
-    const verbs = source.match(/刪除持股|設定總持股|新增持倉|增加到|減少到|增加為|減少為|刪除|移除|賣出|賣掉|減碼|減少|減持|平倉|買進|買入|新增|加碼|加買|增加|增持|設定|設為|改為|改成|調整|修改|更新|持有|\b(?:buy|sell|set|delete|remove)\b/gi) || [];
+    const resolvedStock = resolveStockSymbol(source);
+
+    let symbol = '';
+    if (codes.length === 1) {
+      symbol = codes[0].toUpperCase().replace(/\.TW(O)?$/, '');
+    } else if (!codes.length && resolvedStock) {
+      symbol = resolvedStock.symbol.replace(/\.TW(O)?$/, '');
+    } else if (!codes.length && new Set(existing.map(p => p.symbol)).size === 1) {
+      symbol = existing[0].symbol.replace(/\.TW(O)?$/, '');
+    } else if (codes.length >= 2) {
+      // Positional space-separated format: e.g. "2330 1000 600"
+      const firstCode = codes.find(c => /^\d{4,6}$/.test(c));
+      if (firstCode) symbol = firstCode;
+    }
+
+    // Positional fallback for space-separated format: "2330 1000 600"
+    let sharesStr = quantityMatch ? importQuantity(quantityMatch[1] + (quantityMatch[2] || '')) : '';
+    let priceStr = priceMatch ? importPrice(priceMatch[1]) : '';
+
+    if (hasTotalCostText && !priceMatch) {
+      priceStr = '';
+    } else if (quantities.length === 0 && (!sharesStr || !priceStr)) {
+      const numTokens = source.split(/\s+/).filter(t => /^\d+(?:\.\d+)?$/.test(t.replace(/,/g, '')));
+      if (numTokens.length >= 3 && numTokens[0] === symbol) {
+        if (!sharesStr) sharesStr = importQuantity(numTokens[1]);
+        if (!priceStr && !hasTotalCostText) priceStr = importPrice(numTokens[2]);
+      }
+    }
+
+    const verbs = source.match(/刪除持股|設定總持股|現股買進|現股賣出|融資買進|融資賣出|零股買進|零股賣出|定期定額|新增持倉|增加到|減少到|增加為|減少為|刪除|移除|賣出|賣掉|減碼|減少|減持|平倉|出清|建倉|進場|買進|買入|新增|加碼|加買|增加|增持|設定|設為|改為|改成|調整|修改|更新|持有|\b(?:buy|sell|set|delete|remove)\b/gi) || [];
     const actions = [...new Set(verbs.map(v => importAction(v, defaultAction)))];
     const uncertain = /不要|不想|不買|不賣|取消|如果|假如|考慮|建議|預計|可能|或是|或者/.test(source);
-    const action = actions.length > 1 || uncertain ? '請選擇操作' : actions[0] || defaultAction;
-    return { id: `row-${index}`, source, action, symbol, shares: quantity ? importQuantity(quantity[1] + (quantity[2] || '')) : '', price: price ? importPrice(price[1]) : '', date: importDate(dateMatch?.[0], defaultDate) };
+    let action = actions.length > 1 || uncertain ? '請選擇操作' : actions[0] || defaultAction;
+
+    if (action === defaultAction && /-\d+/.test(source)) {
+      action = 'sell';
+    }
+
+    return {
+      id: `row-${index}`,
+      source,
+      action,
+      symbol,
+      shares: sharesStr,
+      price: priceStr,
+      date: importDate(dateMatch?.[0], defaultDate)
+    };
   });
 }
 
@@ -130,7 +223,9 @@ export function planHoldingImport(portfolio: Portfolio, rows: ImportRow[], batch
   const changes: ImportChange[] = [];
   rows.forEach((row, index) => {
     const fail = (message: string): never => { throw new Error(`第 ${index + 1} 筆：${message}`); };
-    let symbol = row.symbol.trim().toUpperCase();
+    let rawSymbol = row.symbol.trim();
+    const resolved = resolveStockSymbol(rawSymbol);
+    let symbol = resolved ? resolved.symbol : rawSymbol.toUpperCase();
     if (!/^(?:\d{4,6}[A-Z]?(?:\.TWO?)?|[A-Z][A-Z0-9.-]{0,11})$/.test(symbol)) fail('請填入股票代號（例如 2330、0050、6488.TWO）。');
     const matches = next.positions.filter(p => symbolKey(p.symbol) === symbolKey(symbol));
     const markets = new Set(matches.map(p => p.symbol).filter(s => /\.TW(O)?$/.test(s)));
@@ -150,7 +245,7 @@ export function planHoldingImport(portfolio: Portfolio, rows: ImportRow[], batch
     if (action === 'buy' || action === 'set') {
       if (action === 'buy' && !Number.isSafeInteger(before + shares)) fail('總股數超出可處理範圍。');
       const position: Position = { id: `${batchId}-${index}`, symbol, shares, buyPrice: price, buyDate: date, totalCost: shares * price };
-      if (matches[0]?.shortName) position.shortName = matches[0].shortName;
+      if (resolved?.shortName || matches[0]?.shortName) position.shortName = resolved?.shortName || matches[0]?.shortName;
       next.positions.push(position);
     } else if (action === 'sell') {
       const eligible = matches.filter(p => p.buyDate <= date).sort((a, b) => a.buyDate.localeCompare(b.buyDate));
