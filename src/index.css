@@ -6,17 +6,21 @@
   --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+:root {
+  color-scheme: dark;
+}
+
 @layer base {
   body {
-    background-color: #000000;
+    background-color: #09090c;
     color: #F5F5F7;
     font-family: var(--font-sans);
     letter-spacing: -0.015em;
     background-image: 
-      radial-gradient(ellipse 80% 50% at 50% -15%, rgba(120, 119, 198, 0.16), transparent 70%),
-      radial-gradient(circle at 15% 45%, rgba(56, 189, 248, 0.04), transparent 35%),
-      radial-gradient(circle at 85% 65%, rgba(168, 85, 247, 0.04), transparent 40%),
-      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(255, 255, 255, 0.02), transparent);
+      radial-gradient(ellipse 80% 50% at 50% -12%, rgba(120, 119, 198, 0.18), transparent 70%),
+      radial-gradient(circle at 12% 45%, rgba(56, 189, 248, 0.05), transparent 35%),
+      radial-gradient(circle at 88% 65%, rgba(168, 85, 247, 0.05), transparent 40%),
+      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(255, 255, 255, 0.03), transparent);
     background-attachment: fixed;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -26,6 +30,13 @@
   ::selection {
     background-color: rgba(255, 255, 255, 0.25);
     color: #FFFFFF;
+  }
+
+  /* Universal Dark Mode Fix for Dropdown Menus and Inputs */
+  select, select option, select optgroup {
+    background-color: #1a1a24 !important;
+    color: #F5F5F7 !important;
+    color-scheme: dark;
   }
 }
 
@@ -66,44 +77,44 @@
     font-weight: 600;
   }
 
-  /* Apple Liquid Glass & VisionOS Materials */
+  /* Apple Liquid Glass & VisionOS Materials - Visible Color Block */
   .apple-glass {
-    background: rgba(22, 22, 26, 0.65);
+    background: rgba(24, 24, 32, 0.88);
     backdrop-filter: blur(28px) saturate(190%);
     -webkit-backdrop-filter: blur(28px) saturate(190%);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.12),
-      0 12px 36px -10px rgba(0, 0, 0, 0.6);
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.15),
+      0 16px 44px -10px rgba(0, 0, 0, 0.7);
   }
 
   .apple-glass-pill {
-    background: rgba(30, 30, 36, 0.7);
+    background: rgba(34, 34, 44, 0.85);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.18);
   }
 
   .card-bg {
-    background: rgba(18, 18, 22, 0.65);
+    background: #16161f;
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.08),
-      0 10px 30px -8px rgba(0, 0, 0, 0.6);
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.1),
+      0 12px 32px -8px rgba(0, 0, 0, 0.6);
   }
 
   .card-hover {
     transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .card-hover:hover {
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.22);
     transform: translateY(-2px);
     box-shadow: 
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.15),
-      0 18px 40px -10px rgba(0, 0, 0, 0.7),
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.18),
+      0 20px 45px -10px rgba(0, 0, 0, 0.75),
       0 0 30px -5px rgba(255, 255, 255, 0.05);
   }
 
@@ -115,11 +126,11 @@
     font-size: 0.875rem;
     padding: 0.55rem 1.25rem;
     border-radius: 9999px;
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.85);
     cursor: pointer;
     letter-spacing: -0.01em;
     box-shadow: 
-      0 2px 8px -1px rgba(0, 0, 0, 0.3),
+      0 2px 8px -1px rgba(0, 0, 0, 0.35),
       inset 0 1px 0.5px #FFFFFF;
     transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
     display: inline-flex;
@@ -130,7 +141,7 @@
   .action-btn:hover {
     transform: translateY(-1px);
     box-shadow: 
-      0 5px 16px -2px rgba(255, 255, 255, 0.25),
+      0 5px 16px -2px rgba(255, 255, 255, 0.28),
       inset 0 1px 0.5px #FFFFFF;
     filter: brightness(1.03);
   }
@@ -139,21 +150,19 @@
   }
 
   .action-btn-secondary {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: #1c1c26;
     color: #F5F5F7;
     font-weight: 500;
     font-size: 0.875rem;
     padding: 0.55rem 1.2rem;
     border-radius: 9999px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     cursor: pointer;
-    box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.12), 0 2px 6px rgba(0,0,0,0.3);
     transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .action-btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.14);
+    background: #242432;
     border-color: rgba(255, 255, 255, 0.25);
     color: #FFFFFF;
   }
@@ -161,26 +170,26 @@
     transform: scale(0.97);
   }
 
-  /* Apple Form Controls */
+  /* Apple Form Controls - Distinct Color Block and Explicit Dropdown Visibility */
   .input-field {
-    background-color: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: #171720;
+    color-scheme: dark;
+    border: 1px solid rgba(255, 255, 255, 0.14);
     padding: 0.65rem 0.95rem;
     border-radius: 12px;
     color: #F5F5F7;
     width: 100%;
     font-size: 0.875rem;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
     transition: all 0.2s ease;
   }
   .input-field:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.35);
+    border-color: rgba(255, 255, 255, 0.4);
+    background-color: #1c1c28;
     box-shadow: 
-      0 0 0 3px rgba(255, 255, 255, 0.1),
-      inset 0 1px 2px rgba(0, 0, 0, 0.3);
+      0 0 0 3px rgba(255, 255, 255, 0.12),
+      inset 0 1px 2px rgba(0, 0, 0, 0.4);
   }
 
   .label-text {

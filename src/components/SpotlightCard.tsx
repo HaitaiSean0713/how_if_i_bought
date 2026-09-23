@@ -12,8 +12,8 @@ interface SpotlightCardProps extends HTMLMotionProps<'div'> {
 export function SpotlightCard({
   children,
   className,
-  spotlightColor = 'rgba(255, 255, 255, 0.08)',
-  borderColor = 'rgba(255, 255, 255, 0.25)',
+  spotlightColor = 'rgba(255, 255, 255, 0.09)',
+  borderColor = 'rgba(255, 255, 255, 0.3)',
   ...props
 }: SpotlightCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -58,8 +58,8 @@ export function SpotlightCard({
         }}
       />
 
-      {/* Card Inner Background & Surface Spotlight */}
-      <div className="relative z-10 w-full h-full rounded-[15px] bg-[#0c0c0e]/80 backdrop-blur-2xl overflow-hidden">
+      {/* Card Inner Background - Elevated adjacent color block */}
+      <div className="relative z-10 w-full h-full rounded-[15px] bg-[#16161f] border border-white/[0.08] backdrop-blur-2xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
         {/* Soft Radial Surface Glow */}
         <div
           className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"

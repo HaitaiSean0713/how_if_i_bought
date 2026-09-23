@@ -107,11 +107,11 @@ export function PositionCard({ position, quote, onRemove, onSell }: PositionCard
 
         {/* Price Metrics Grid */}
         <div className="grid grid-cols-2 gap-2.5 mb-4">
-          <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+          <div className="bg-[#20202b] rounded-xl p-3 border border-white/[0.08] shadow-xs">
             <p className="label-text mb-1 text-[11px] text-[#8E8E93]">買進均價</p>
             <p className="font-semibold text-[#F5F5F7] text-base tabular-nums tracking-tight">{formatCurrency(position.buyPrice)}</p>
           </div>
-          <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+          <div className="bg-[#20202b] rounded-xl p-3 border border-white/[0.08] shadow-xs">
             <p className="label-text mb-1 text-[11px] text-[#8E8E93]">目前現價</p>
             <p className="font-semibold text-[#F5F5F7] text-base tabular-nums tracking-tight flex items-baseline gap-1.5">
               {quote ? formatCurrency(quote.regularMarketPrice) : '-'}
@@ -159,7 +159,7 @@ export function PositionCard({ position, quote, onRemove, onSell }: PositionCard
                 <Layers size={12} /> 歷史買進明細
               </p>
               {position.history!.map((histPos) => (
-                <div key={histPos.id} className="flex justify-between items-center bg-white/[0.03] p-2.5 rounded-xl border border-white/[0.06] hover:border-white/15 transition-colors">
+                <div key={histPos.id} className="flex justify-between items-center bg-[#20202b] p-2.5 rounded-xl border border-white/[0.08] hover:border-white/20 transition-colors">
                   <div>
                     <p className="text-xs text-[#F5F5F7] font-mono">{histPos.buyDate}</p>
                     <p className="text-xs text-[#8E8E93] font-mono">{histPos.shares.toLocaleString()} 股 @ {formatCurrency(histPos.buyPrice)}</p>

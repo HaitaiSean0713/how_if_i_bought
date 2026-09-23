@@ -683,7 +683,7 @@ function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[#000000] text-[#F5F5F7] font-sans selection:bg-white/20">
+    <div className="min-h-screen bg-[#09090c] text-[#F5F5F7] font-sans selection:bg-white/20">
       <CursorFollower />
       <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
         {/* Floating Apple Dynamic Island Header */}
@@ -815,7 +815,7 @@ function App() {
         ) : (
           <>
             {/* Apple Segmented Control - Portfolios Navigation */}
-        <div className="flex gap-1.5 mb-8 overflow-x-auto p-1.5 bg-white/[0.03] backdrop-blur-2xl rounded-2xl border border-white/[0.08] scrollbar-hide items-center shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
+        <div className="flex gap-1.5 mb-8 overflow-x-auto p-1.5 bg-[#14141d] backdrop-blur-2xl rounded-2xl border border-white/[0.12] scrollbar-hide items-center shadow-[0_4px_20px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.06)]">
           {portfolios.map(p => {
             const isActive = activePortfolioId === p.id && activeTab !== 'compare';
             return (
@@ -829,13 +829,13 @@ function App() {
                     "relative px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors z-10 flex items-center gap-1.5 focus:outline-none tracking-tight",
                     isActive 
                       ? "text-white font-semibold" 
-                      : "text-[#8E8E93] hover:text-[#F5F5F7] hover:bg-white/5"
+                      : "text-[#9d9da6] hover:text-[#F5F5F7] hover:bg-white/10"
                   )}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="activePortfolioPill"
-                      className="absolute inset-0 bg-white/15 border border-white/20 rounded-xl -z-10 shadow-[0_2px_10px_rgba(255,255,255,0.08)]"
+                      className="absolute inset-0 bg-[#252538] border border-white/20 rounded-xl -z-10 shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
                       transition={{ type: 'spring', bounce: 0.16, duration: 0.35 }}
                     />
                   )}
@@ -897,7 +897,7 @@ function App() {
             {activeTab === 'compare' && (
               <motion.div
                 layoutId="activePortfolioPill"
-                className="absolute inset-0 bg-white/15 border border-white/20 rounded-xl -z-10 shadow-[0_2px_10px_rgba(255,255,255,0.08)]"
+                className="absolute inset-0 bg-[#252538] border border-white/20 rounded-xl -z-10 shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
                 transition={{ type: 'spring', bounce: 0.16, duration: 0.35 }}
               />
             )}
@@ -922,12 +922,12 @@ function App() {
                   {existingGroups.map(g => {
                     const gSummary = calculateGroupSummary(g.name, portfolios, quotes);
                     return (
-                      <SpotlightCard key={g.name} className="border border-blue-500/20 bg-gradient-to-b from-blue-950/15 via-white/[0.01] to-transparent p-5">
-                        <div className="flex justify-between items-start mb-3 border-b border-white/[0.06] pb-3">
+                      <SpotlightCard key={g.name} className="border border-indigo-500/30 bg-[#121626] shadow-[0_8px_30px_rgba(0,0,0,0.5)] p-5">
+                        <div className="flex justify-between items-start mb-3 border-b border-white/[0.08] pb-3">
                           <div>
                             <div className="flex items-center gap-2">
                               <h4 className="font-semibold text-white tracking-tight">{g.name}</h4>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-medium">群組</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/25 border border-indigo-500/35 text-indigo-300 font-medium">群組</span>
                             </div>
                             <p className="text-xs text-[#8E8E93] mt-0.5">{gSummary.portfolios.length} 個投資組合</p>
                           </div>
@@ -1048,18 +1048,18 @@ function App() {
           <>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
               {/* Apple Segmented Control Sub-Tabs */}
-              <div className="flex bg-white/[0.03] border border-white/[0.08] rounded-2xl p-1 justify-center sm:justify-start backdrop-blur-2xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]">
+              <div className="flex bg-[#14141d] border border-white/[0.12] rounded-2xl p-1 justify-center sm:justify-start backdrop-blur-2xl shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
                 <button
                   onClick={() => setActiveTab('active')}
                   className={cn(
                     "relative px-4 py-1.5 text-xs sm:text-sm font-medium rounded-xl transition-colors whitespace-nowrap z-10 tracking-tight",
-                    activeTab === 'active' ? "text-white font-semibold" : "text-[#8E8E93] hover:text-white"
+                    activeTab === 'active' ? "text-white font-semibold" : "text-[#9d9da6] hover:text-white"
                   )}
                 >
                   {activeTab === 'active' && (
                     <motion.div
                       layoutId="activeSubTabIndicator"
-                      className="absolute inset-0 bg-white/15 border border-white/20 rounded-xl -z-10 shadow-[0_2px_10px_rgba(255,255,255,0.08)]"
+                      className="absolute inset-0 bg-[#252538] border border-white/20 rounded-xl -z-10 shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
                       transition={{ type: 'spring', bounce: 0.16, duration: 0.35 }}
                     />
                   )}
@@ -1069,13 +1069,13 @@ function App() {
                   onClick={() => setActiveTab('closed')}
                   className={cn(
                     "relative px-4 py-1.5 text-xs sm:text-sm font-medium rounded-xl transition-colors whitespace-nowrap z-10 tracking-tight",
-                    activeTab === 'closed' ? "text-white font-semibold" : "text-[#8E8E93] hover:text-white"
+                    activeTab === 'closed' ? "text-white font-semibold" : "text-[#9d9da6] hover:text-white"
                   )}
                 >
                   {activeTab === 'closed' && (
                     <motion.div
                       layoutId="activeSubTabIndicator"
-                      className="absolute inset-0 bg-white/15 border border-white/20 rounded-xl -z-10 shadow-[0_2px_10px_rgba(255,255,255,0.08)]"
+                      className="absolute inset-0 bg-[#252538] border border-white/20 rounded-xl -z-10 shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
                       transition={{ type: 'spring', bounce: 0.16, duration: 0.35 }}
                     />
                   )}
@@ -1116,24 +1116,24 @@ function App() {
 
             {/* Portfolio Group Summary Banner */}
             {activeGroupSummary && (
-              <SpotlightCard className="mb-6 border border-blue-500/20 bg-gradient-to-r from-blue-950/20 via-white/[0.02] to-indigo-950/20 shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
+              <SpotlightCard className="mb-6 border border-indigo-500/25 bg-[#121626] shadow-[0_12px_36px_rgba(0,0,0,0.5)]">
                 <div className="p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/[0.08]">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-center text-blue-400">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
                         <Layers size={16} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="text-base font-semibold text-white tracking-tight">{activeGroupSummary.groupName}</h3>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300 font-medium">群組總覽</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 font-medium">群組總覽</span>
                         </div>
                         <p className="text-xs text-[#8E8E93] mt-0.5">包含 {activeGroupSummary.portfolios.length} 個投資組合的共享資金池與綜觀分析</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setSelectedGroupModal(activeGroupSummary.groupName)}
-                      className="self-start sm:self-auto action-btn-secondary px-3 py-1.5 text-xs flex items-center gap-1.5 text-white/80 hover:text-white"
+                      className="self-start sm:self-auto action-btn-secondary px-3 py-1.5 text-xs flex items-center gap-1.5 text-white/90 hover:text-white"
                     >
                       <Settings size={13} />
                       管理群組設定
@@ -1141,13 +1141,13 @@ function App() {
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
                       <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">共同初始資金</span>
                       <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
                         {activeGroupSummary.initialCapital !== undefined ? formatCurrency(activeGroupSummary.initialCapital) : '未設定'}
                       </span>
                     </div>
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
                       <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組已用成本</span>
                       <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
                         {formatCurrency(activeGroupSummary.totalCost)}
@@ -1158,7 +1158,7 @@ function App() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
                       <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">剩餘可用資金</span>
                       <span className={cn("text-sm sm:text-base font-semibold font-mono tabular-nums", activeGroupSummary.remainingCash !== undefined && activeGroupSummary.remainingCash < 0 ? "text-[#FF453A]" : "text-white")}>
                         {activeGroupSummary.remainingCash !== undefined ? formatCurrency(activeGroupSummary.remainingCash) : '—'}
@@ -1169,13 +1169,13 @@ function App() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
                       <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組股票市值</span>
                       <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
                         {formatCurrency(activeGroupSummary.totalValue)}
                       </span>
                     </div>
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
                       <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組整體淨值</span>
                       <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
                         {activeGroupSummary.totalNetWorth !== undefined ? formatCurrency(activeGroupSummary.totalNetWorth) : formatCurrency(activeGroupSummary.totalValue)}
@@ -1184,7 +1184,7 @@ function App() {
                         {activeGroupSummary.initialCapital !== undefined ? '現金 + 股票市值' : '股票市值'}
                       </span>
                     </div>
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3">
+                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
                       <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">整體資本回報</span>
                       <span className={cn("text-sm sm:text-base font-semibold font-mono tabular-nums", activeGroupSummary.totalReturn >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
                         {activeGroupSummary.totalReturn > 0 ? '+' : ''}{formatCurrency(activeGroupSummary.totalReturn)}
@@ -1205,8 +1205,8 @@ function App() {
                         className={cn(
                           "px-2.5 py-1 rounded-lg border text-xs font-mono transition-all flex items-center gap-1.5 flex-shrink-0",
                           mp.id === activePortfolioId
-                            ? "bg-white/15 border-white/30 text-white font-medium shadow-xs"
-                            : "bg-white/[0.03] border-white/[0.08] text-[#8E8E93] hover:text-white hover:bg-white/[0.06]"
+                            ? "bg-[#2b3558] border-indigo-400/50 text-white font-medium shadow-xs"
+                            : "bg-[#191e34] border border-indigo-400/20 text-[#a5b4fc] hover:text-white hover:bg-[#202642]"
                         )}
                       >
                         <span>{mp.name}</span>

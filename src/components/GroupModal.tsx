@@ -163,9 +163,9 @@ export function GroupModal({
             <p className="text-xs font-medium text-[#8E8E93] mb-2 flex items-center gap-1.5">
               <span>所屬組合成員 ({memberPortfolios.length})</span>
             </p>
-            <div className="bg-white/[0.03] rounded-2xl p-3 border border-white/[0.06] space-y-1.5 max-h-36 overflow-y-auto">
+            <div className="bg-[#171720] rounded-2xl p-3 border border-white/[0.12] space-y-1.5 max-h-36 overflow-y-auto shadow-inner">
               {memberPortfolios.map((p) => (
-                <div key={p.id} className="flex justify-between items-center text-xs py-1 px-1.5 rounded-lg hover:bg-white/[0.03]">
+                <div key={p.id} className="flex justify-between items-center text-xs py-1 px-1.5 rounded-lg hover:bg-white/[0.06]">
                   <span className="text-white font-medium flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
                     {p.name}

@@ -157,15 +157,19 @@ export function PortfolioModal({
               value={selectedGroup}
               disabled={isSaving}
               onChange={(e) => handleGroupSelectChange(e.target.value)}
-              className="input-field cursor-pointer"
+              className="input-field cursor-pointer bg-[#1c1c24] text-[#F5F5F7] font-medium"
             >
-              <option value="__none__">無群組 (獨立組合)</option>
+              <option value="__none__" className="bg-[#1c1c24] text-[#F5F5F7] py-1">
+                無群組 (獨立組合)
+              </option>
               {existingGroups.map((g) => (
-                <option key={g.name} value={g.name}>
+                <option key={g.name} value={g.name} className="bg-[#1c1c24] text-[#F5F5F7] py-1">
                   群組：{g.name} {g.initialCapital ? `(初始本金 $${g.initialCapital.toLocaleString()})` : ''}
                 </option>
               ))}
-              <option value="__new__">＋ 建立新組合群組…</option>
+              <option value="__new__" className="bg-[#1c1c24] text-[#38BDF8] font-semibold py-1">
+                ＋ 建立新組合群組…
+              </option>
             </select>
           </div>
 

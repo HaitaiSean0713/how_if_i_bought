@@ -11,8 +11,8 @@ export function CursorFollower() {
   const mouseX = useMotionValue(-100);
   const mouseY = useMotionValue(-100);
 
-  // Smooth lagging aura spring physics (Apple fluid spring)
-  const springConfig = { damping: 26, stiffness: 280, mass: 0.5 };
+  // Ultra-responsive spring physics (tight tracking with zero sluggish drag)
+  const springConfig = { damping: 42, stiffness: 1000, mass: 0.06 };
   const auraX = useSpring(mouseX, springConfig);
   const auraY = useSpring(mouseY, springConfig);
 
@@ -80,7 +80,7 @@ export function CursorFollower() {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-      {/* Outer fluid aura glow */}
+      {/* Outer fluid aura glow - tight and agile */}
       <motion.div
         style={{
           x: auraX,
@@ -89,13 +89,13 @@ export function CursorFollower() {
           translateY: '-50%',
         }}
         animate={{
-          scale: isClicking ? 0.8 : isHovered ? 1.6 : 1,
-          opacity: isHovered ? 0.85 : 0.45,
-          width: isHovered ? 56 : 38,
-          height: isHovered ? 56 : 38,
+          scale: isClicking ? 0.85 : isHovered ? 1.35 : 1,
+          opacity: isHovered ? 0.75 : 0.4,
+          width: isHovered ? 46 : 30,
+          height: isHovered ? 46 : 30,
         }}
-        transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-        className="rounded-full bg-gradient-to-tr from-white/10 via-cyan-400/20 to-indigo-400/20 backdrop-blur-[2px] border border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.15)]"
+        transition={{ type: 'spring', damping: 28, stiffness: 450 }}
+        className="rounded-full bg-gradient-to-tr from-white/15 via-cyan-400/20 to-indigo-400/20 backdrop-blur-[2px] border border-white/25 shadow-[0_0_15px_rgba(255,255,255,0.12)]"
       />
 
       {/* Center pinpoint focus dot */}
@@ -107,11 +107,11 @@ export function CursorFollower() {
           translateY: '-50%',
         }}
         animate={{
-          scale: isClicking ? 1.4 : isHovered ? 0.5 : 1,
-          opacity: isHovered ? 0.3 : 0.9,
+          scale: isClicking ? 1.3 : isHovered ? 0.6 : 1,
+          opacity: isHovered ? 0.4 : 0.9,
         }}
-        transition={{ type: 'spring', damping: 25, stiffness: 500 }}
-        className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_#ffffff]"
+        transition={{ type: 'spring', damping: 30, stiffness: 600 }}
+        className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_#ffffff]"
       />
     </div>
   );

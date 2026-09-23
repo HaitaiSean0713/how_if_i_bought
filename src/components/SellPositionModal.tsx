@@ -131,14 +131,14 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
               <button
                 type="button"
                 onClick={() => setSellShares(Math.floor(position.shares / 2).toString())}
-                className="px-2 py-1 text-xs rounded bg-[#1C1C1F] text-[#6B7280] hover:text-[#C5A059] hover:bg-[#222226] transition-colors"
+                className="px-2.5 py-1 text-xs rounded-lg bg-[#22222c] border border-white/10 text-[#d1d1d6] hover:text-white hover:bg-[#2c2c38] transition-colors font-medium"
               >
                 1/2 股數
               </button>
               <button
                 type="button"
                 onClick={() => setSellShares(position.shares.toString())}
-                className="px-2 py-1 text-xs rounded bg-[#1C1C1F] text-[#6B7280] hover:text-[#C5A059] hover:bg-[#222226] transition-colors"
+                className="px-2.5 py-1 text-xs rounded-lg bg-[#22222c] border border-white/10 text-[#d1d1d6] hover:text-white hover:bg-[#2c2c38] transition-colors font-medium"
               >
                 全部股數
               </button>

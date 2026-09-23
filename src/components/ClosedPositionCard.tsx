@@ -58,11 +58,11 @@ export function ClosedPositionCard({ position, onRemove }: ClosedPositionCardPro
         </div>
 
         <div className="grid grid-cols-2 gap-2.5 mb-4">
-          <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+          <div className="bg-[#20202b] rounded-xl p-3 border border-white/[0.08] shadow-xs">
             <p className="label-text mb-1 text-[11px] text-[#8E8E93]">買進均價</p>
             <p className="font-semibold text-[#F5F5F7] text-base tabular-nums tracking-tight">{formatCurrency(position.buyPrice)}</p>
           </div>
-          <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+          <div className="bg-[#20202b] rounded-xl p-3 border border-white/[0.08] shadow-xs">
             <p className="label-text mb-1 text-[11px] text-[#8E8E93]">賣出價格</p>
             <p className="font-semibold text-[#F5F5F7] text-base tabular-nums tracking-tight">
               {formatCurrency(position.sellPrice)}
