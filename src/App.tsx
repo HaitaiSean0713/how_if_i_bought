@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical, Sparkles, ShieldCheck, FileSpreadsheet, Layers, Settings, FolderOpen } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, TrendingDown, Activity, RefreshCw, LayoutGrid, Trash2, LogOut, LogIn, Edit2, GripVertical, Sparkles, ShieldCheck, FileSpreadsheet, Layers, Settings, FolderOpen, Trophy } from 'lucide-react';
 import { Position, QuoteData, PortfolioSummary, Portfolio } from './types';
 import { cn } from './lib/utils';
 import { AddPositionModal } from './components/AddPositionModal';
@@ -940,21 +940,28 @@ function App() {
             {existingGroups.length > 0 && (
               <div className="mb-8">
                 <h3 className="text-sm font-semibold tracking-tight text-[#8E8E93] uppercase mb-3 px-1 flex items-center gap-2">
-                  <Layers size={14} className="text-blue-400" />
-                  群組資金池總覽 (Group Summaries)
+                  <Trophy size={14} className="text-amber-400" />
+                  群組成員績效對比與額度 (Group Performance Comparisons)
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-6">
                   {existingGroups.map(g => {
                     const gSummary = calculateGroupSummary(g.name, portfolios, quotes);
                     return (
-                      <SpotlightCard key={g.name} className="border border-indigo-500/30 bg-[#121626] shadow-[0_8px_30px_rgba(0,0,0,0.5)] p-5">
-                        <div className="flex justify-between items-start mb-3 border-b border-white/[0.08] pb-3">
+                      <SpotlightCard key={g.name} className="border border-indigo-500/25 bg-[#121626] shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-5">
+                        <div className="flex justify-between items-start mb-4 border-b border-white/[0.08] pb-3">
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-semibold text-white tracking-tight">{g.name}</h4>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/25 border border-indigo-500/35 text-indigo-300 font-medium">群組</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-semibold text-white tracking-tight text-base">{g.name}</h4>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/35 text-amber-300 font-medium">績效對比</span>
+                              {gSummary.perPortfolioCapital !== undefined && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 font-mono">
+                                  每組合額度上限 {formatCurrency(gSummary.perPortfolioCapital)}
+                                </span>
+                              )}
                             </div>
-                            <p className="text-xs text-[#8E8E93] mt-0.5">{gSummary.portfolios.length} 個投資組合</p>
+                            <p className="text-xs text-[#8E8E93] mt-0.5">
+                              共 {gSummary.portfolios.length} 個投資組合參與持股績效評比（同額本金限制，不共用）
+                            </p>
                           </div>
                           <button
                             onClick={() => setSelectedGroupModal(g.name)}
@@ -964,31 +971,64 @@ function App() {
                             <Settings size={14} />
                           </button>
                         </div>
-                        <div className="space-y-2 text-xs">
-                          <div className="flex justify-between text-[#8E8E93]">
-                            <span>共同初始資金</span>
-                            <span className="font-mono text-white font-medium">{gSummary.initialCapital !== undefined ? formatCurrency(gSummary.initialCapital) : '未設定'}</span>
-                          </div>
-                          <div className="flex justify-between text-[#8E8E93]">
-                            <span>已動用成本</span>
-                            <span className="font-mono text-white">{formatCurrency(gSummary.totalCost)}</span>
-                          </div>
-                          <div className="flex justify-between text-[#8E8E93]">
-                            <span>剩餘可用資金</span>
-                            <span className={cn("font-mono", gSummary.remainingCash !== undefined && gSummary.remainingCash < 0 ? "text-[#FF453A]" : "text-white")}>
-                              {gSummary.remainingCash !== undefined ? formatCurrency(gSummary.remainingCash) : '—'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-[#8E8E93]">
-                            <span>群組股票市值</span>
-                            <span className="font-mono text-white font-medium">{formatCurrency(gSummary.totalValue)}</span>
-                          </div>
-                          <div className="flex justify-between text-[#8E8E93] pt-2 border-t border-white/[0.06]">
-                            <span>資本總回報</span>
-                            <span className={cn("font-mono font-semibold", gSummary.totalReturn >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
-                              {gSummary.totalReturn > 0 ? '+' : ''}{formatCurrency(gSummary.totalReturn)} ({formatPercent(gSummary.totalReturnPercent)})
-                            </span>
-                          </div>
+
+                        {/* Member Performance Comparison List */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                          {gSummary.memberComparisons.map((comp) => {
+                            const isPositive = comp.totalReturn >= 0;
+                            return (
+                              <div
+                                key={comp.portfolio.id}
+                                onClick={() => { setActivePortfolioId(comp.portfolio.id); setActiveTab('active'); }}
+                                className="cursor-pointer rounded-xl p-3.5 border border-white/[0.08] bg-[#161a2c] hover:bg-[#1a1f34] hover:border-indigo-400/30 transition-all space-y-2.5"
+                              >
+                                <div className="flex justify-between items-center gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-xs font-bold font-mono">
+                                      {comp.rank === 1 ? "🥇" : comp.rank === 2 ? "🥈" : comp.rank === 3 ? "🥉" : `#${comp.rank}`}
+                                    </span>
+                                    <span className="text-sm font-semibold text-white truncate">{comp.portfolio.name}</span>
+                                  </div>
+                                  <span className="text-[10px] text-[#8E8E93] font-mono flex-shrink-0">{comp.positionsCount} 檔持倉</span>
+                                </div>
+
+                                <div className="flex justify-between items-baseline gap-2 bg-[#101320] p-2 rounded-lg">
+                                  <div>
+                                    <span className="text-[10px] text-[#8E8E93] block">總損益</span>
+                                    <span className={cn("text-sm font-semibold font-mono", isPositive ? "text-[#30D158]" : "text-[#FF453A]")}>
+                                      {isPositive && comp.totalReturn > 0 ? '+' : ''}{formatCurrency(comp.totalReturn)}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-[10px] text-[#8E8E93] block">額度報酬率</span>
+                                    <span className={cn("text-sm font-semibold font-mono", comp.returnOnCapitalPercent >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
+                                      {comp.returnOnCapitalPercent > 0 ? '+' : ''}{comp.returnOnCapitalPercent.toFixed(2)}%
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {comp.quota !== undefined && (
+                                  <div className="space-y-1 text-[11px]">
+                                    <div className="flex justify-between text-[#8E8E93] font-mono text-[10px]">
+                                      <span>已用 {formatCurrency(comp.totalCost)}</span>
+                                      <span className={comp.isQuotaDepleted ? "text-rose-400" : "text-emerald-400"}>
+                                        {comp.isQuotaDepleted ? "額度已滿" : `剩餘 ${formatCurrency(Math.max(0, comp.remainingQuota ?? 0))}`}
+                                      </span>
+                                    </div>
+                                    <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
+                                      <div
+                                        className={cn(
+                                          "h-full rounded-full",
+                                          comp.isQuotaDepleted ? "bg-rose-500" : comp.quotaUsagePercent > 80 ? "bg-amber-400" : "bg-indigo-400"
+                                        )}
+                                        style={{ width: `${Math.min(100, Math.max(0, comp.quotaUsagePercent))}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </SpotlightCard>
                     );
@@ -1159,21 +1199,28 @@ function App() {
               )}
             </div>
 
-            {/* Portfolio Group Summary Banner */}
+            {/* Portfolio Group Summary & Member Performance Comparison Banner */}
             {activeGroupSummary && (
               <SpotlightCard className="mb-6 border border-indigo-500/25 bg-[#121626] shadow-[0_12px_36px_rgba(0,0,0,0.5)]">
                 <div className="p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/[0.08]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-white/[0.08]">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                        <Layers size={16} />
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <Trophy size={16} />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-base font-semibold text-white tracking-tight">{activeGroupSummary.groupName}</h3>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 font-medium">群組總覽</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/35 text-amber-300 font-medium">持股績效對比</span>
+                          {activeGroupSummary.perPortfolioCapital !== undefined && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 font-mono">
+                              每組合額度上限 {formatCurrency(activeGroupSummary.perPortfolioCapital)}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-[#8E8E93] mt-0.5">包含 {activeGroupSummary.portfolios.length} 個投資組合（各擁獨立資金額度，不共用）之綜觀分析</p>
+                        <p className="text-xs text-[#8E8E93] mt-0.5">
+                          同額初始資金限制（各組合獨立不共用）・橫向比較不同持股組合之投資績效
+                        </p>
                       </div>
                     </div>
                     <button
@@ -1185,84 +1232,105 @@ function App() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
-                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">每組合專屬額度</span>
-                      <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
-                        {activeGroupSummary.perPortfolioCapital !== undefined ? formatCurrency(activeGroupSummary.perPortfolioCapital) : '未設定'}
-                      </span>
-                      {activeGroupSummary.initialCapital !== undefined ? (
-                        <span className="text-[10px] text-[#8E8E93] font-mono block mt-0.5">
-                          總規模 {formatCurrency(activeGroupSummary.initialCapital)} ({activeGroupSummary.portfolios.length}組合)
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
-                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組已用成本</span>
-                      <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
-                        {formatCurrency(activeGroupSummary.totalCost)}
-                      </span>
-                      {activeGroupSummary.initialCapital ? (
-                        <span className="text-[10px] text-[#8E8E93] font-mono block mt-0.5">
-                          佔總額度 {((activeGroupSummary.totalCost / activeGroupSummary.initialCapital) * 100).toFixed(1)}%
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
-                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組剩餘可用額度</span>
-                      <span className={cn("text-sm sm:text-base font-semibold font-mono tabular-nums", activeGroupSummary.remainingCash !== undefined && activeGroupSummary.remainingCash < 0 ? "text-[#FF453A]" : "text-white")}>
-                        {activeGroupSummary.remainingCash !== undefined ? formatCurrency(activeGroupSummary.remainingCash) : '—'}
-                      </span>
-                      {activeGroupSummary.initialCapital !== undefined && activeGroupSummary.remainingCash !== undefined ? (
-                        <span className="text-[10px] text-[#8E8E93] font-mono block mt-0.5">
-                          佔總額度 {((activeGroupSummary.remainingCash / activeGroupSummary.initialCapital) * 100).toFixed(1)}%
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
-                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組股票市值</span>
-                      <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
-                        {formatCurrency(activeGroupSummary.totalValue)}
-                      </span>
-                    </div>
-                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
-                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">群組整體淨值</span>
-                      <span className="text-sm sm:text-base font-semibold text-white font-mono tabular-nums">
-                        {activeGroupSummary.totalNetWorth !== undefined ? formatCurrency(activeGroupSummary.totalNetWorth) : formatCurrency(activeGroupSummary.totalValue)}
-                      </span>
-                      <span className="text-[10px] text-[#8E8E93] block mt-0.5">
-                        {activeGroupSummary.initialCapital !== undefined ? '現金 + 股票市值' : '股票市值'}
-                      </span>
-                    </div>
-                    <div className="bg-[#191e34] border border-indigo-400/20 rounded-xl p-3 shadow-xs">
-                      <span className="text-[11px] font-medium text-[#8E8E93] block mb-1">整體資本回報</span>
-                      <span className={cn("text-sm sm:text-base font-semibold font-mono tabular-nums", activeGroupSummary.totalReturn >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
-                        {activeGroupSummary.totalReturn > 0 ? '+' : ''}{formatCurrency(activeGroupSummary.totalReturn)}
-                      </span>
-                      <span className={cn("text-[10px] font-mono font-medium block mt-0.5", activeGroupSummary.totalReturn >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
-                        {formatPercent(activeGroupSummary.totalReturnPercent)}
-                      </span>
-                    </div>
-                  </div>
+                  {/* Member Comparisons Side-by-Side Bento Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {activeGroupSummary.memberComparisons.map((comp) => {
+                      const isSelected = comp.portfolio.id === activePortfolioId;
+                      const isPositive = comp.totalReturn >= 0;
+                      return (
+                        <div
+                          key={comp.portfolio.id}
+                          onClick={() => setActivePortfolioId(comp.portfolio.id)}
+                          className={cn(
+                            "group/comp cursor-pointer rounded-2xl p-4 border transition-all relative overflow-hidden",
+                            isSelected
+                              ? "bg-[#1c223a] border-indigo-400/60 shadow-[0_0_20px_rgba(99,102,241,0.2)] ring-1 ring-indigo-400/30"
+                              : "bg-[#161a2c] border-white/[0.08] hover:border-indigo-400/30 hover:bg-[#1a1f34]"
+                          )}
+                        >
+                          {/* Card Header: Rank + Name + Status */}
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={cn(
+                                "flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold font-mono",
+                                comp.rank === 1 ? "bg-amber-400/20 text-amber-300 border border-amber-400/40" : "bg-white/10 text-[#8E8E93]"
+                              )}>
+                                {comp.rank === 1 ? "🥇" : comp.rank === 2 ? "🥈" : comp.rank === 3 ? "🥉" : `#${comp.rank}`}
+                              </span>
+                              <h4 className="text-sm font-semibold text-white tracking-tight truncate group-hover/comp:text-indigo-200 transition-colors">
+                                {comp.portfolio.name}
+                              </h4>
+                              {isSelected && (
+                                <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 font-medium">
+                                  目前檢視
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-[#8E8E93] font-mono flex-shrink-0">
+                              {comp.positionsCount} 檔持倉
+                            </span>
+                          </div>
 
-                  {/* Member portfolios quick switcher */}
-                  <div className="flex items-center gap-2 overflow-x-auto pt-1 scrollbar-hide text-xs">
-                    <span className="text-[#8E8E93] flex-shrink-0">群組成員：</span>
-                    {activeGroupSummary.portfolios.map(mp => (
-                      <button
-                        key={mp.id}
-                        onClick={() => setActivePortfolioId(mp.id)}
-                        className={cn(
-                          "px-2.5 py-1 rounded-lg border text-xs font-mono transition-all flex items-center gap-1.5 flex-shrink-0",
-                          mp.id === activePortfolioId
-                            ? "bg-[#2b3558] border-indigo-400/50 text-white font-medium shadow-xs"
-                            : "bg-[#191e34] border border-indigo-400/20 text-[#a5b4fc] hover:text-white hover:bg-[#202642]"
-                        )}
-                      >
-                        <span>{mp.name}</span>
-                        <span className="text-[10px] opacity-60">({mp.positions.length}檔持倉)</span>
-                      </button>
-                    ))}
+                          {/* Key Performance Metrics: Return & Profit */}
+                          <div className="grid grid-cols-2 gap-2 mb-3 bg-[#111422] p-2.5 rounded-xl border border-white/[0.05]">
+                            <div>
+                              <span className="text-[10px] text-[#8E8E93] block mb-0.5">總報酬 (損益)</span>
+                              <p className={cn("text-base font-semibold font-mono tabular-nums leading-tight", isPositive ? "text-[#30D158]" : "text-[#FF453A]")}>
+                                {isPositive && comp.totalReturn > 0 ? '+' : ''}{formatCurrency(comp.totalReturn)}
+                              </p>
+                              <span className={cn("text-[10px] font-mono", isPositive ? "text-[#30D158]" : "text-[#FF453A]")}>
+                                投報率 {formatPercent(comp.totalReturnPercent)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-[#8E8E93] block mb-0.5">基準額度報酬率</span>
+                              <p className={cn("text-base font-semibold font-mono tabular-nums leading-tight", comp.returnOnCapitalPercent >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
+                                {comp.returnOnCapitalPercent > 0 ? '+' : ''}{comp.returnOnCapitalPercent.toFixed(2)}%
+                              </p>
+                              <span className="text-[10px] text-[#8E8E93] font-mono">
+                                市值 {formatCurrency(comp.totalValue)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Quota Usage Limit & Progress Bar */}
+                          {comp.quota !== undefined ? (
+                            <div className="space-y-1.5 text-xs">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-[#8E8E93]">資金動用：</span>
+                                <span className="font-mono text-white/90">
+                                  {formatCurrency(comp.totalCost)} <span className="text-[#8E8E93]">/ {formatCurrency(comp.quota)}</span>
+                                </span>
+                              </div>
+                              <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden relative">
+                                <div
+                                  className={cn(
+                                    "h-full rounded-full transition-all duration-500",
+                                    comp.isQuotaDepleted
+                                      ? "bg-rose-500"
+                                      : comp.quotaUsagePercent > 80
+                                        ? "bg-amber-400"
+                                        : "bg-indigo-400"
+                                  )}
+                                  style={{ width: `${Math.min(100, Math.max(0, comp.quotaUsagePercent))}%` }}
+                                />
+                              </div>
+                              <div className="flex justify-between items-center text-[10px] font-mono text-[#8E8E93] pt-0.5">
+                                <span>佔額度 {comp.quotaUsagePercent.toFixed(1)}%</span>
+                                <span className={comp.isQuotaDepleted ? "text-rose-400 font-semibold" : "text-emerald-400"}>
+                                  {comp.isQuotaDepleted ? "⚠️ 額度已用盡（禁止買入）" : `剩餘額度 ${formatCurrency(Math.max(0, comp.remainingQuota ?? 0))}`}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-[#8E8E93] flex justify-between font-mono">
+                              <span>已投入成本</span>
+                              <span className="text-white">{formatCurrency(comp.totalCost)}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </SpotlightCard>

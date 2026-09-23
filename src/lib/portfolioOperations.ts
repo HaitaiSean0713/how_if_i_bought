@@ -1,4 +1,4 @@
-import type { Portfolio, PortfolioGroupSummary } from '../types';
+import type { Portfolio, PortfolioGroupSummary, GroupMemberComparison } from '../types';
 
 export function readPortfolioDocument(id: string, data: Partial<Portfolio>): Portfolio {
   const groupName = typeof data.groupName === 'string' && data.groupName.trim() ? data.groupName.trim() : undefined;
@@ -21,24 +21,67 @@ export function calculateGroupSummary(
 ): PortfolioGroupSummary {
   const memberPortfolios = portfolios.filter(p => p.groupName === groupName);
   const foundCapital = memberPortfolios.find(p => typeof p.groupInitialCapital === 'number' && p.groupInitialCapital > 0)?.groupInitialCapital;
+  const perPortfolioCapital = foundCapital !== undefined ? foundCapital : undefined;
 
   let totalCost = 0;
   let totalValue = 0;
   let totalReturn = 0;
 
+  const rawComparisons: Omit<GroupMemberComparison, 'rank'>[] = [];
+
   for (const p of memberPortfolios) {
+    let pCost = 0;
+    let pValue = 0;
+
     for (const pos of p.positions) {
       const q = quotes[pos.symbol] || quotes[pos.symbol + '.TW'] || quotes[pos.symbol + '.TWO'];
       const price = q?.regularMarketPrice || pos.buyPrice;
       const val = price * pos.shares;
-      totalCost += pos.totalCost;
-      totalValue += val;
-      totalReturn += (val - pos.totalCost);
+      pCost += pos.totalCost;
+      pValue += val;
     }
+
+    const pReturn = pValue - pCost;
+    const pReturnPercent = pCost > 0 ? (pReturn / pCost) * 100 : 0;
+    const quota = p.groupInitialCapital || perPortfolioCapital;
+    const returnOnCapitalPercent = quota && quota > 0 ? (pReturn / quota) * 100 : pReturnPercent;
+    const remainingQuota = quota !== undefined ? quota - pCost : undefined;
+    const quotaUsagePercent = quota && quota > 0 ? (pCost / quota) * 100 : 0;
+    const isQuotaDepleted = remainingQuota !== undefined && remainingQuota <= 0;
+
+    totalCost += pCost;
+    totalValue += pValue;
+    totalReturn += pReturn;
+
+    rawComparisons.push({
+      portfolio: p,
+      totalCost: pCost,
+      totalValue: pValue,
+      totalReturn: pReturn,
+      totalReturnPercent: pReturnPercent,
+      returnOnCapitalPercent,
+      quota,
+      remainingQuota,
+      quotaUsagePercent,
+      isQuotaDepleted,
+      positionsCount: p.positions.length,
+    });
   }
 
+  // Sort by returnOnCapitalPercent descending, then by totalReturn descending
+  rawComparisons.sort((a, b) => {
+    if (b.returnOnCapitalPercent !== a.returnOnCapitalPercent) {
+      return b.returnOnCapitalPercent - a.returnOnCapitalPercent;
+    }
+    return b.totalReturn - a.totalReturn;
+  });
+
+  const memberComparisons: GroupMemberComparison[] = rawComparisons.map((c, idx) => ({
+    ...c,
+    rank: idx + 1,
+  }));
+
   const totalReturnPercent = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0;
-  const perPortfolioCapital = foundCapital !== undefined ? foundCapital : undefined;
   // Group total capital is the sum of all member portfolios' individual quotas
   const initialCapital = perPortfolioCapital !== undefined ? perPortfolioCapital * memberPortfolios.length : undefined;
   const remainingCash = initialCapital !== undefined ? initialCapital - totalCost : undefined;
@@ -53,6 +96,7 @@ export function calculateGroupSummary(
     perPortfolioCapital,
     initialCapital,
     portfolios: memberPortfolios,
+    memberComparisons,
     totalCost,
     totalValue,
     totalReturn,

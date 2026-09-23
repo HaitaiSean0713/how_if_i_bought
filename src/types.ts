@@ -11,11 +11,27 @@ export interface Portfolio {
   sortOrder?: number;
 }
 
+export interface GroupMemberComparison {
+  portfolio: Portfolio;
+  rank: number;
+  totalCost: number;
+  totalValue: number;
+  totalReturn: number;
+  totalReturnPercent: number;
+  returnOnCapitalPercent: number;
+  quota?: number;
+  remainingQuota?: number;
+  quotaUsagePercent: number;
+  isQuotaDepleted: boolean;
+  positionsCount: number;
+}
+
 export interface PortfolioGroupSummary {
   groupName: string;
   perPortfolioCapital?: number;
   initialCapital?: number;
   portfolios: Portfolio[];
+  memberComparisons: GroupMemberComparison[];
   totalCost: number;
   totalValue: number;
   totalReturn: number;

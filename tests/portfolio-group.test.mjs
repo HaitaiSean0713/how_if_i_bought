@@ -122,6 +122,22 @@ test('calculateGroupSummary calculates cost, value, remaining cash and return on
 
   // Return on invested cost = (80,000 / 500,000) * 100 = 16%
   assert.equal(summary.totalReturnPercent, 16);
+
+  // Member comparison verification (p1 rank 1 with 6%, p2 rank 2 with 2%)
+  assert.equal(summary.memberComparisons.length, 2);
+  assert.equal(summary.memberComparisons[0].portfolio.id, 'p1');
+  assert.equal(summary.memberComparisons[0].rank, 1);
+  assert.equal(summary.memberComparisons[0].totalReturn, 60000);
+  assert.equal(summary.memberComparisons[0].returnOnCapitalPercent, 6);
+  assert.equal(summary.memberComparisons[0].remainingQuota, 700000);
+  assert.equal(summary.memberComparisons[0].quotaUsagePercent, 30);
+
+  assert.equal(summary.memberComparisons[1].portfolio.id, 'p2');
+  assert.equal(summary.memberComparisons[1].rank, 2);
+  assert.equal(summary.memberComparisons[1].totalReturn, 20000);
+  assert.equal(summary.memberComparisons[1].returnOnCapitalPercent, 2);
+  assert.equal(summary.memberComparisons[1].remainingQuota, 800000);
+  assert.equal(summary.memberComparisons[1].quotaUsagePercent, 20);
 });
 
 test('checkPortfolioQuota allows purchases within quota and rejects when exceeding', () => {
