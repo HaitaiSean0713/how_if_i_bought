@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 interface SpotlightCardProps extends HTMLMotionProps<'div'> {
   children: React.ReactNode;
   className?: string;
+  innerClassName?: string;
   spotlightColor?: string;
   borderColor?: string;
 }
@@ -12,6 +13,7 @@ interface SpotlightCardProps extends HTMLMotionProps<'div'> {
 export function SpotlightCard({
   children,
   className,
+  innerClassName,
   spotlightColor = 'rgba(255, 255, 255, 0.09)',
   borderColor = 'rgba(255, 255, 255, 0.3)',
   ...props
@@ -59,7 +61,10 @@ export function SpotlightCard({
       />
 
       {/* Card Inner Background - Elevated adjacent color block */}
-      <div className="relative z-10 w-full h-full rounded-[15px] bg-[#16161f] border border-white/[0.08] backdrop-blur-2xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+      <div className={cn(
+        "relative z-10 w-full h-full rounded-[15px] bg-[#1e1f30] border border-white/[0.14] backdrop-blur-2xl overflow-hidden shadow-[0_6px_24px_rgba(0,0,0,0.5)]",
+        innerClassName
+      )}>
         {/* Soft Radial Surface Glow */}
         <div
           className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"

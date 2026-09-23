@@ -1201,31 +1201,34 @@ function App() {
 
             {/* Portfolio Group Summary & Member Performance Comparison Banner */}
             {activeGroupSummary && (
-              <SpotlightCard className="mb-6 border border-indigo-500/25 bg-[#121626] shadow-[0_12px_36px_rgba(0,0,0,0.5)]">
+              <SpotlightCard className="mb-6 border border-white/[0.14] shadow-[0_12px_36px_rgba(0,0,0,0.5)]" innerClassName="bg-[#1b1c2e] border-white/[0.14]">
                 <div className="p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-white/[0.08]">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                        <Trophy size={16} />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-white/[0.1]">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/35 flex items-center justify-center text-amber-300">
+                        <Trophy size={18} />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-semibold text-white tracking-tight">{activeGroupSummary.groupName}</h3>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/35 text-amber-300 font-medium">持股績效對比</span>
-                          {activeGroupSummary.perPortfolioCapital !== undefined && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 font-mono">
-                              每組合額度上限 {formatCurrency(activeGroupSummary.perPortfolioCapital)}
-                            </span>
-                          )}
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">{activeGroupSummary.groupName}</h3>
+                          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/35 text-amber-300 font-semibold">
+                            群組績效對比
+                          </span>
                         </div>
-                        <p className="text-xs text-[#8E8E93] mt-0.5">
-                          同額初始資金限制（各組合獨立不共用）・橫向比較不同持股組合之投資績效
-                        </p>
+                        {activeGroupSummary.perPortfolioCapital !== undefined && (
+                          <p className="text-xs text-[#D1D1D6] mt-1 font-mono flex items-center gap-1.5 font-medium">
+                            <span className="text-white">群組初始金額：</span>
+                            <span className="font-bold text-white text-sm bg-indigo-500/20 border border-indigo-500/35 px-2 py-0.5 rounded-md">
+                              {formatCurrency(activeGroupSummary.perPortfolioCapital)}
+                            </span>
+                            <span className="text-[#A1A1A6]">（各組合獨立額度，不共用）</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                     <button
                       onClick={() => setSelectedGroupModal(activeGroupSummary.groupName)}
-                      className="self-start sm:self-auto action-btn-secondary px-3 py-1.5 text-xs flex items-center gap-1.5 text-white/90 hover:text-white"
+                      className="self-start sm:self-auto action-btn-secondary px-3.5 py-1.5 text-xs flex items-center gap-1.5 text-white hover:text-white"
                     >
                       <Settings size={13} />
                       管理群組設定
@@ -1244,90 +1247,63 @@ function App() {
                           className={cn(
                             "group/comp cursor-pointer rounded-2xl p-4 border transition-all relative overflow-hidden",
                             isSelected
-                              ? "bg-[#1c223a] border-indigo-400/60 shadow-[0_0_20px_rgba(99,102,241,0.2)] ring-1 ring-indigo-400/30"
-                              : "bg-[#161a2c] border-white/[0.08] hover:border-indigo-400/30 hover:bg-[#1a1f34]"
+                              ? "bg-[#252840] border-indigo-400/70 shadow-[0_0_24px_rgba(99,102,241,0.25)] ring-1 ring-indigo-400/40"
+                              : "bg-[#1e2034] border-white/[0.12] hover:border-indigo-400/40 hover:bg-[#23263e]"
                           )}
                         >
                           {/* Card Header: Rank + Name + Status */}
                           <div className="flex items-center justify-between gap-2 mb-3">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className={cn(
-                                "flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold font-mono",
-                                comp.rank === 1 ? "bg-amber-400/20 text-amber-300 border border-amber-400/40" : "bg-white/10 text-[#8E8E93]"
+                                "flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold font-mono",
+                                comp.rank === 1 ? "bg-amber-400/25 text-amber-300 border border-amber-400/40" : "bg-white/10 text-white border border-white/15"
                               )}>
                                 {comp.rank === 1 ? "🥇" : comp.rank === 2 ? "🥈" : comp.rank === 3 ? "🥉" : `#${comp.rank}`}
                               </span>
-                              <h4 className="text-sm font-semibold text-white tracking-tight truncate group-hover/comp:text-indigo-200 transition-colors">
+                              <h4 className="text-sm sm:text-base font-bold text-white tracking-tight truncate group-hover/comp:text-indigo-200 transition-colors">
                                 {comp.portfolio.name}
                               </h4>
                               {isSelected && (
-                                <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 font-medium">
+                                <span className="flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-500/40 font-semibold">
                                   目前檢視
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-[#8E8E93] font-mono flex-shrink-0">
+                            <span className="text-xs text-[#D1D1D6] font-mono flex-shrink-0 font-medium">
                               {comp.positionsCount} 檔持倉
                             </span>
                           </div>
 
-                          {/* Key Performance Metrics: Return & Profit */}
-                          <div className="grid grid-cols-2 gap-2 mb-3 bg-[#111422] p-2.5 rounded-xl border border-white/[0.05]">
+                          {/* Member Performance Metrics */}
+                          <div className="grid grid-cols-3 gap-2 bg-[#171827] p-3 rounded-xl border border-white/[0.08]">
                             <div>
-                              <span className="text-[10px] text-[#8E8E93] block mb-0.5">總報酬 (損益)</span>
-                              <p className={cn("text-base font-semibold font-mono tabular-nums leading-tight", isPositive ? "text-[#30D158]" : "text-[#FF453A]")}>
+                              <span className="text-[11px] text-[#D1D1D6] block mb-1 font-medium">總報酬 (損益)</span>
+                              <p className={cn("text-base sm:text-lg font-bold font-mono tabular-nums leading-tight", isPositive ? "text-[#30D158]" : "text-[#FF453A]")}>
                                 {isPositive && comp.totalReturn > 0 ? '+' : ''}{formatCurrency(comp.totalReturn)}
                               </p>
-                              <span className={cn("text-[10px] font-mono", isPositive ? "text-[#30D158]" : "text-[#FF453A]")}>
+                              <span className={cn("text-[11px] font-mono font-medium", isPositive ? "text-[#30D158]" : "text-[#FF453A]")}>
                                 投報率 {formatPercent(comp.totalReturnPercent)}
                               </span>
                             </div>
                             <div>
-                              <span className="text-[10px] text-[#8E8E93] block mb-0.5">基準額度報酬率</span>
-                              <p className={cn("text-base font-semibold font-mono tabular-nums leading-tight", comp.returnOnCapitalPercent >= 0 ? "text-[#30D158]" : "text-[#FF453A]")}>
-                                {comp.returnOnCapitalPercent > 0 ? '+' : ''}{comp.returnOnCapitalPercent.toFixed(2)}%
+                              <span className="text-[11px] text-[#D1D1D6] block mb-1 font-medium">目前持股市值</span>
+                              <p className="text-base sm:text-lg font-bold font-mono text-white tabular-nums leading-tight">
+                                {formatCurrency(comp.totalValue)}
                               </p>
-                              <span className="text-[10px] text-[#8E8E93] font-mono">
-                                市值 {formatCurrency(comp.totalValue)}
+                              <span className="text-[11px] text-[#A1A1A6] font-mono">
+                                市價總和
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[11px] text-[#D1D1D6] block mb-1 font-medium">已投入成本</span>
+                              <p className="text-base sm:text-lg font-bold font-mono text-white tabular-nums leading-tight">
+                                {formatCurrency(comp.totalCost)}
+                              </p>
+                              <span className="text-[11px] text-[#A1A1A6] font-mono">
+                                {comp.quota ? `額度 ${formatCurrency(comp.quota)}` : '買入成本'}
                               </span>
                             </div>
                           </div>
-
-                          {/* Quota Usage Limit & Progress Bar */}
-                          {comp.quota !== undefined ? (
-                            <div className="space-y-1.5 text-xs">
-                              <div className="flex justify-between items-center text-[11px]">
-                                <span className="text-[#8E8E93]">資金動用：</span>
-                                <span className="font-mono text-white/90">
-                                  {formatCurrency(comp.totalCost)} <span className="text-[#8E8E93]">/ {formatCurrency(comp.quota)}</span>
-                                </span>
-                              </div>
-                              <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden relative">
-                                <div
-                                  className={cn(
-                                    "h-full rounded-full transition-all duration-500",
-                                    comp.isQuotaDepleted
-                                      ? "bg-rose-500"
-                                      : comp.quotaUsagePercent > 80
-                                        ? "bg-amber-400"
-                                        : "bg-indigo-400"
-                                  )}
-                                  style={{ width: `${Math.min(100, Math.max(0, comp.quotaUsagePercent))}%` }}
-                                />
-                              </div>
-                              <div className="flex justify-between items-center text-[10px] font-mono text-[#8E8E93] pt-0.5">
-                                <span>佔額度 {comp.quotaUsagePercent.toFixed(1)}%</span>
-                                <span className={comp.isQuotaDepleted ? "text-rose-400 font-semibold" : "text-emerald-400"}>
-                                  {comp.isQuotaDepleted ? "⚠️ 額度已用盡（禁止買入）" : `剩餘額度 ${formatCurrency(Math.max(0, comp.remainingQuota ?? 0))}`}
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-[11px] text-[#8E8E93] flex justify-between font-mono">
-                              <span>已投入成本</span>
-                              <span className="text-white">{formatCurrency(comp.totalCost)}</span>
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -1339,47 +1315,47 @@ function App() {
             {/* Apple Spotlight Bento Grid Dashboard */}
             {activeTab === 'active' ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
-                <SpotlightCard className="border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
+                <SpotlightCard className="border border-white/[0.14] shadow-[0_8px_30px_rgb(0,0,0,0.5)]" innerClassName="bg-[#1e1f32] border-white/[0.14]">
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-[#8E8E93]">投入總成本</span>
-                      <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-[#8E8E93] group-hover:text-white transition-colors">
+                      <span className="text-xs font-medium text-[#D1D1D6]">投入總成本</span>
+                      <div className="w-8 h-8 rounded-xl bg-white/[0.08] border border-white/15 flex items-center justify-center text-white transition-colors">
                         <Wallet size={16} />
                       </div>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-semibold text-white tabular-nums tracking-tight font-mono">
+                    <p className="text-2xl sm:text-3xl font-bold text-white tabular-nums tracking-tight font-mono">
                       {formatCurrency(summary.totalCost)}
                     </p>
                   </div>
                 </SpotlightCard>
                 
-                <SpotlightCard className="border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
+                <SpotlightCard className="border border-white/[0.14] shadow-[0_8px_30px_rgb(0,0,0,0.5)]" innerClassName="bg-[#1e1f32] border-white/[0.14]">
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-[#8E8E93]">目前總市值</span>
-                      <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-[#8E8E93] group-hover:text-white transition-colors">
+                      <span className="text-xs font-medium text-[#D1D1D6]">目前總市值</span>
+                      <div className="w-8 h-8 rounded-xl bg-white/[0.08] border border-white/15 flex items-center justify-center text-white transition-colors">
                         <Activity size={16} />
                       </div>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-semibold text-white tabular-nums tracking-tight font-mono">
+                    <p className="text-2xl sm:text-3xl font-bold text-white tabular-nums tracking-tight font-mono">
                       {formatCurrency(summary.totalValue)}
                     </p>
                   </div>
                 </SpotlightCard>
 
-                <SpotlightCard className="border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
+                <SpotlightCard className="border border-white/[0.14] shadow-[0_8px_30px_rgb(0,0,0,0.5)]" innerClassName="bg-[#1e1f32] border-white/[0.14]">
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-[#8E8E93]">總投資報酬</span>
-                      <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center border", isOverallPositive ? "bg-emerald-500/10 border-emerald-500/20 text-[#30D158]" : (summary.totalReturn < 0 ? "bg-rose-500/10 border-rose-500/20 text-[#FF453A]" : "bg-white/5 border-white/10 text-[#8E8E93]"))}>
+                      <span className="text-xs font-medium text-[#D1D1D6]">總投資報酬</span>
+                      <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center border", isOverallPositive ? "bg-emerald-500/20 border-emerald-500/35 text-[#30D158]" : (summary.totalReturn < 0 ? "bg-rose-500/20 border-rose-500/35 text-[#FF453A]" : "bg-white/10 border-white/20 text-[#D1D1D6]"))}>
                         {isOverallPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                       </div>
                     </div>
                     <div className="flex items-baseline justify-between flex-wrap gap-2">
-                      <p className={cn("text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight font-mono", isOverallPositive ? "text-[#30D158]" : (summary.totalReturn < 0 ? "text-[#FF453A]" : "text-white"))}>
+                      <p className={cn("text-2xl sm:text-3xl font-bold tabular-nums tracking-tight font-mono", isOverallPositive ? "text-[#30D158]" : (summary.totalReturn < 0 ? "text-[#FF453A]" : "text-white"))}>
                         {isOverallPositive && summary.totalReturn > 0 ? '+' : ''}{formatCurrency(summary.totalReturn)}
                       </p>
-                      <span className={cn("text-xs font-mono font-medium px-2.5 py-0.5 rounded-full border shadow-xs", isOverallPositive ? "bg-emerald-500/15 border-emerald-500/30 text-[#30D158]" : (summary.totalReturnPercent < 0 ? "bg-rose-500/15 border-rose-500/30 text-[#FF453A]" : "bg-white/5 border-white/10 text-[#8E8E93]"))}>
+                      <span className={cn("text-xs font-mono font-semibold px-2.5 py-0.5 rounded-full border shadow-xs", isOverallPositive ? "bg-emerald-500/20 border-emerald-500/35 text-[#30D158]" : (summary.totalReturnPercent < 0 ? "bg-rose-500/20 border-rose-500/35 text-[#FF453A]" : "bg-white/10 border-white/20 text-[#D1D1D6]"))}>
                         {formatPercent(summary.totalReturnPercent)}
                       </span>
                     </div>
@@ -1388,33 +1364,33 @@ function App() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
-                <SpotlightCard className="border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
+                <SpotlightCard className="border border-white/[0.14] shadow-[0_8px_30px_rgb(0,0,0,0.5)]" innerClassName="bg-[#1e1f32] border-white/[0.14]">
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-[#8E8E93]">平倉總成本</span>
-                      <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-[#8E8E93] group-hover:text-white transition-colors">
+                      <span className="text-xs font-medium text-[#D1D1D6]">平倉總成本</span>
+                      <div className="w-8 h-8 rounded-xl bg-white/[0.08] border border-white/15 flex items-center justify-center text-white transition-colors">
                         <Wallet size={16} />
                       </div>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-semibold text-white tabular-nums tracking-tight font-mono">
+                    <p className="text-2xl sm:text-3xl font-bold text-white tabular-nums tracking-tight font-mono">
                       {formatCurrency(closedSummary.totalCost)}
                     </p>
                   </div>
                 </SpotlightCard>
                 
-                <SpotlightCard className="border border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
+                <SpotlightCard className="border border-white/[0.14] shadow-[0_8px_30px_rgb(0,0,0,0.5)]" innerClassName="bg-[#1e1f32] border-white/[0.14]">
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-[#8E8E93]">已實現總損益</span>
-                      <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center border", isClosedPositive ? "bg-emerald-500/10 border-emerald-500/20 text-[#30D158]" : (closedSummary.totalRealized < 0 ? "bg-rose-500/10 border-rose-500/20 text-[#FF453A]" : "bg-white/5 border-white/10 text-[#8E8E93]"))}>
+                      <span className="text-xs font-medium text-[#D1D1D6]">已實現總損益</span>
+                      <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center border", isClosedPositive ? "bg-emerald-500/20 border-emerald-500/35 text-[#30D158]" : (closedSummary.totalRealized < 0 ? "bg-rose-500/20 border-rose-500/35 text-[#FF453A]" : "bg-white/10 border-white/20 text-[#D1D1D6]"))}>
                         {isClosedPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                       </div>
                     </div>
                     <div className="flex items-baseline justify-between flex-wrap gap-2">
-                      <p className={cn("text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight font-mono", isClosedPositive ? "text-[#30D158]" : (closedSummary.totalRealized < 0 ? "text-[#FF453A]" : "text-white"))}>
+                      <p className={cn("text-2xl sm:text-3xl font-bold tabular-nums tracking-tight font-mono", isClosedPositive ? "text-[#30D158]" : (closedSummary.totalRealized < 0 ? "text-[#FF453A]" : "text-white"))}>
                         {isClosedPositive && closedSummary.totalRealized > 0 ? '+' : ''}{formatCurrency(closedSummary.totalRealized)}
                       </p>
-                      <span className={cn("text-xs font-mono font-medium px-2.5 py-0.5 rounded-full border shadow-xs", isClosedPositive ? "bg-emerald-500/15 border-emerald-500/30 text-[#30D158]" : (closedSummaryPercent < 0 ? "bg-rose-500/15 border-rose-500/30 text-[#FF453A]" : "bg-white/5 border-white/10 text-[#8E8E93]"))}>
+                      <span className={cn("text-xs font-mono font-semibold px-2.5 py-0.5 rounded-full border shadow-xs", isClosedPositive ? "bg-emerald-500/20 border-emerald-500/35 text-[#30D158]" : (closedSummaryPercent < 0 ? "bg-rose-500/20 border-rose-500/35 text-[#FF453A]" : "bg-white/10 border-white/20 text-[#D1D1D6]"))}>
                         {formatPercent(closedSummaryPercent)}
                       </span>
                     </div>
@@ -1427,7 +1403,7 @@ function App() {
             <div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white mb-4 px-1 flex items-baseline gap-3 apple-title">
                 {activeTab === 'active' ? '持倉分析' : '歷史績效'}
-                <span className="text-xs uppercase tracking-wider text-[#8E8E93] font-normal">
+                <span className="text-xs uppercase tracking-wider text-[#D1D1D6] font-medium">
                   {activeTab === 'active' ? 'Position Analysis' : 'Closed Performance'}
                 </span>
               </h2>
@@ -1471,19 +1447,17 @@ function App() {
                     </div>
                   </motion.div>
                 ) : (
-                  <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    <AnimatePresence mode="popLayout">
-                      {groupedPositions.map((pos) => (
-                        <PositionCard 
-                          key={pos.symbol} 
-                          position={pos} 
-                          quote={quotes[pos.symbol] || quotes[pos.symbol + '.TW'] || quotes[pos.symbol + '.TWO']}
-                          onRemove={handleRemovePosition}
-                          onSell={(position, currentPrice) => setSellModalData({ position, currentPrice })}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </motion.div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {groupedPositions.map((pos) => (
+                      <PositionCard 
+                        key={pos.symbol} 
+                        position={pos} 
+                        quote={quotes[pos.symbol] || quotes[pos.symbol + '.TW'] || quotes[pos.symbol + '.TWO']}
+                        onRemove={handleRemovePosition}
+                        onSell={(position, currentPrice) => setSellModalData({ position, currentPrice })}
+                      />
+                    ))}
+                  </div>
                 )
               ) : (
                 closedPositions.length === 0 ? (
@@ -1501,17 +1475,15 @@ function App() {
                     </p>
                   </motion.div>
                 ) : (
-                  <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    <AnimatePresence mode="popLayout">
-                      {closedPositions.map((pos) => (
-                        <ClosedPositionCard 
-                          key={pos.id} 
-                          position={pos} 
-                          onRemove={handleRemoveClosedPosition}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </motion.div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {closedPositions.map((pos) => (
+                      <ClosedPositionCard 
+                        key={pos.id} 
+                        position={pos} 
+                        onRemove={handleRemoveClosedPosition}
+                      />
+                    ))}
+                  </div>
                 )
               )}
             </div>
