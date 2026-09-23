@@ -70,6 +70,84 @@ const aliases: Record<Field, string[]> = {
 };
 const headerField = (value: unknown) => (Object.keys(aliases) as Field[]).find(key => aliases[key].includes(clean(value).replace(/[\s_]/g, '').toLowerCase()));
 
+function parseHeaderlessRow(cells: string[], defaultAction: ImportAction, defaultDate: string) {
+  const used = new Set<number>();
+  let action = defaultAction;
+  let date = defaultDate;
+  let symbol = '';
+  let shares = '';
+  let price = '';
+
+  // 1. Identify Action cell
+  for (let i = 0; i < cells.length; i++) {
+    const c = cells[i].trim();
+    if (/^(buy|sell|set|delete|買|賣|買進|買入|賣出|賣掉|設定|調整|新增|減碼|現股買進|現買|融資買進|資買|零股買進|定期定額|現股賣出|現賣)$/i.test(c)) {
+      action = importAction(c, defaultAction) as ImportAction;
+      used.add(i);
+      break;
+    }
+  }
+
+  // 2. Identify Date cell
+  for (let i = 0; i < cells.length; i++) {
+    if (used.has(i)) continue;
+    const c = cells[i].trim();
+    if (/^(?:民國)?\d{3,4}[年/.-]\d{1,2}[月/.-]\d{1,2}日?$|^\d{7,8}$/.test(c)) {
+      date = importDate(c, defaultDate);
+      used.add(i);
+      break;
+    }
+  }
+
+  // 3. Identify Stock Symbol/Name cell
+  for (let i = 0; i < cells.length; i++) {
+    if (used.has(i)) continue;
+    const c = cells[i].trim();
+    const res = resolveStockSymbol(c);
+    if (res) {
+      symbol = res.symbol.replace(/\.TW(O)?$/, '');
+      used.add(i);
+      break;
+    }
+    if (/^[A-Za-z]{1,6}$/.test(c) || /^\d{4,6}$/.test(c)) {
+      symbol = c.toUpperCase();
+      used.add(i);
+      break;
+    }
+  }
+
+  // 4. Remaining numeric cells (shares and price)
+  const remaining: { index: number; val: string }[] = [];
+  for (let i = 0; i < cells.length; i++) {
+    if (!used.has(i)) remaining.push({ index: i, val: cells[i].trim() });
+  }
+
+  if (remaining.length === 1) {
+    const val = remaining[0].val;
+    if (/\.|元|\$|@/.test(val)) {
+      price = importPrice(val);
+    } else {
+      shares = importQuantity(val);
+    }
+  } else if (remaining.length >= 2) {
+    const hasDecimalOrCurrency = remaining.findIndex(r => /\.|元|\$|@/.test(r.val));
+    const hasLotUnit = remaining.findIndex(r => /股|張/.test(r.val));
+    if (hasLotUnit !== -1 && hasDecimalOrCurrency !== -1 && hasLotUnit !== hasDecimalOrCurrency) {
+      shares = importQuantity(remaining[hasLotUnit].val);
+      price = importPrice(remaining[hasDecimalOrCurrency].val);
+    } else if (hasDecimalOrCurrency !== -1) {
+      price = importPrice(remaining[hasDecimalOrCurrency].val);
+      const other = remaining.find((_, idx) => idx !== hasDecimalOrCurrency);
+      if (other) shares = importQuantity(other.val);
+    } else {
+      shares = importQuantity(remaining[0].val);
+      price = importPrice(remaining[1].val);
+    }
+  }
+
+  return { action, symbol, shares, price, date };
+}
+
 export function parseImportTable(data: unknown[][], defaultAction: ImportAction, defaultDate: string): ImportRow[] {
   const rows = data.filter(row => row.some(cell => clean(cell)));
   if (!rows.length) throw new Error('檔案或工作表沒有內容。');
@@ -79,7 +157,20 @@ export function parseImportTable(data: unknown[][], defaultAction: ImportAction,
   const body = hasHeader ? rows.slice(1) : rows;
   if (body.length > MAX_IMPORT_ROWS) throw new Error(`每次最多匯入 ${MAX_IMPORT_ROWS} 筆。`);
   return body.filter(row => !row.every(cell => /^:?-{3,}:?$/.test(clean(cell)))).map((row, index) => {
-    const get = (field: Field, fallbackIndex: number) => row[hasHeader ? fields.indexOf(field) : fallbackIndex];
+    if (!hasHeader) {
+      const parsed = parseHeaderlessRow(row.map(clean), defaultAction, defaultDate);
+      return {
+        id: `row-${index}`,
+        source: row.map(clean).join(' ; '),
+        symbol: parsed.symbol,
+        shares: parsed.shares,
+        price: parsed.price,
+        date: parsed.date,
+        action: parsed.action
+      };
+    }
+
+    const get = (field: Field, fallbackIndex: number) => row[fields.indexOf(field) !== -1 ? fields.indexOf(field) : fallbackIndex];
     const rawSymbol = clean(get('symbol', 0));
     const resolved = resolveStockSymbol(rawSymbol);
     const symbol = resolved ? resolved.symbol.replace(/\.TW(O)?$/, '') : rawSymbol.toUpperCase();
@@ -114,6 +205,13 @@ export function parseDelimited(text: string, delimiter: string): string[][] {
   return rows;
 }
 
+function isDelimitedLine(line: string, delim: string): boolean {
+  const parts = line.split(delim).map(s => s.trim()).filter(Boolean);
+  if (parts.length < 2) return false;
+  // A table row has atomic cells without internal spaces separating multiple words
+  return parts.every(p => !/\s/.test(p) || /^".*"$/.test(p));
+}
+
 export function parseImportText(text: string, defaultAction: ImportAction, defaultDate: string, portfolio: Portfolio): ImportRow[] {
   if (new TextEncoder().encode(text).length > MAX_IMPORT_BYTES) throw new Error('文字太長，請拆成每次 2 MB 以內。');
   const input = text.normalize('NFKC').trim();
@@ -122,7 +220,8 @@ export function parseImportText(text: string, defaultAction: ImportAction, defau
   const firstLine = input.split(/\r?\n/)[0];
   if (firstLine.includes('\t')) return parseImportTable(parseDelimited(input, '\t'), defaultAction, defaultDate);
   if (firstLine.includes('|')) return parseImportTable(input.split(/\r?\n/).filter(l => l.trim()).map(l => l.trim().replace(/^\||\|$/g, '').split('|')), defaultAction, defaultDate);
-  if (firstLine.split(',').some(cell => headerField(cell)) || /^"?[A-Z0-9.^-]+"?,/i.test(firstLine)) return parseImportTable(parseDelimited(input, ','), defaultAction, defaultDate);
+  if (firstLine.includes(';') && isDelimitedLine(firstLine, ';')) return parseImportTable(parseDelimited(input, ';'), defaultAction, defaultDate);
+  if (firstLine.split(',').some(cell => headerField(cell)) || /^"?[A-Z0-9.^-]+"?,/i.test(firstLine) || (firstLine.includes(',') && isDelimitedLine(firstLine, ','))) return parseImportTable(parseDelimited(input, ','), defaultAction, defaultDate);
 
   let rawLines = input.split(/[\n;；。]+/).map(s => s.trim()).filter(Boolean);
 
@@ -166,7 +265,7 @@ export function parseImportText(text: string, defaultAction: ImportAction, defau
 
     // Find existing position by shortName or taiwanStocks dictionary
     const existing = portfolio.positions.filter(p => p.shortName && source.includes(p.shortName));
-    const resolvedStock = resolveStockSymbol(source);
+    const resolvedStock = resolveStockSymbol(masked) || resolveStockSymbol(source);
 
     let symbol = '';
     if (codes.length === 1) {

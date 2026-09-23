@@ -98,4 +98,13 @@ test('Taiwan stock names, concise space formats, and broker statement actions ar
   assert.equal(period.symbol, '6488');
   assert.equal(period.action, 'buy');
   assert.equal(period.price, '950');
+
+  // Semicolon delimited input
+  const semi = parse('2382;買進;1000;341.5');
+  assert.equal(semi.length, 1);
+  assert.equal(semi[0].symbol, '2382');
+  assert.equal(semi[0].action, 'buy');
+  assert.equal(semi[0].shares, '1000');
+  assert.equal(semi[0].price, '341.5');
 });
+
