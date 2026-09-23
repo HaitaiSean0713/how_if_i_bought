@@ -10,8 +10,19 @@ export interface ImportRow {
 }
 export const MAX_IMPORT_ROWS = 300;
 export const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
-export const symbolKey = (symbol: string) => symbol.trim().toUpperCase().replace(/\.TW(O)?$/, '');
-export const holdingsVersion = (p: Portfolio) => JSON.stringify([p.id, p.positions, p.closedPositions]);
+export const symbolKey = (symbol: string) => (symbol || '').trim().toUpperCase().replace(/\.TW(O)?$/, '');
+export const holdingsVersion = (p: Portfolio | null | undefined): string => {
+  if (!p) return '';
+  const positions = (p.positions || [])
+    .map(pos => pos ? [pos.id || '', symbolKey(pos.symbol || ''), pos.shares || 0, pos.buyDate || '', Number(pos.buyPrice || 0).toFixed(4), Number(pos.totalCost || 0).toFixed(2)].join(':') : '')
+    .sort()
+    .join('|');
+  const closed = (p.closedPositions || [])
+    .map(pos => pos ? [pos.id || '', symbolKey(pos.symbol || ''), pos.shares || 0, pos.sellDate || '', Number(pos.sellPrice || 0).toFixed(4)].join(':') : '')
+    .sort()
+    .join('|');
+  return [p.id || '', positions, closed].join('#');
+};
 
 function clean(value: unknown): string {
   return String(value ?? '').normalize('NFKC').trim();
@@ -318,7 +329,11 @@ export function parseImportText(text: string, defaultAction: ImportAction, defau
 export interface ImportChange { row: ImportRow; symbol: string; before: number; after: number; costBefore: number; costAfter: number; }
 export function planHoldingImport(portfolio: Portfolio, rows: ImportRow[], batchId: string, now = new Date()) {
   if (!rows.length || rows.length > MAX_IMPORT_ROWS) throw new Error(`請提供 1 至 ${MAX_IMPORT_ROWS} 筆資料。`);
-  let next: Portfolio = { ...portfolio, positions: portfolio.positions.map(p => ({ ...p })), closedPositions: [...portfolio.closedPositions] };
+  let next: Portfolio = {
+    ...portfolio,
+    positions: (portfolio.positions || []).map(p => ({ ...p })),
+    closedPositions: [...(portfolio.closedPositions || [])]
+  };
   const changes: ImportChange[] = [];
   rows.forEach((row, index) => {
     const fail = (message: string): never => { throw new Error(`第 ${index + 1} 筆：${message}`); };

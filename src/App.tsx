@@ -95,7 +95,7 @@ function App() {
     try {
       const cached = localStorage.getItem('portfolios_guest');
       if (cached) {
-        const parsed = JSON.parse(cached) as Portfolio[];
+        const parsed = (JSON.parse(cached) as Partial<Portfolio>[]).map((p, idx) => readPortfolioDocument(p.id || crypto.randomUUID(), { ...p, sortOrder: p.sortOrder ?? idx }));
         parsed.sort((a, b) => {
           const orderA = a.sortOrder !== undefined ? a.sortOrder : (a.createdAt || 0);
           const orderB = b.sortOrder !== undefined ? b.sortOrder : (b.createdAt || 0);
@@ -253,7 +253,7 @@ function App() {
   };
 
   const updateActivePortfolio = async (updater: (p: Portfolio) => Portfolio) => {
-    const current = portfolios.find(p => p.id === activePortfolioId);
+    const current = portfolios.find(p => p.id === activePortfolioId) || portfolios[0];
     if (!current) throw new Error('找不到作用中的投資組合，請先新增或選取組合。');
     await performMutation('儲存持倉', async () => {
       if (isGuest) {
@@ -334,7 +334,9 @@ function App() {
 
   const handleImportHoldings = async (rows: ImportRow[], expectedVersion: string, batchId: string) => {
     await updateActivePortfolio(current => {
-      if (holdingsVersion(current) !== expectedVersion) throw new Error('持倉已在其他視窗或裝置變更，請重新產生預覽。');
+      if (expectedVersion && holdingsVersion(current) !== expectedVersion) {
+        throw new Error('持倉已在其他視窗或裝置變更，請重新產生預覽。');
+      }
       return planHoldingImport(current, rows, batchId).portfolio;
     });
     setActiveTab('active');

@@ -108,3 +108,29 @@ test('Taiwan stock names, concise space formats, and broker statement actions ar
   assert.equal(semi[0].price, '341.5');
 });
 
+test('holdingsVersion is canonical, ignores object key order, undefined closedPositions, and volatile fields', () => {
+  const p1 = {
+    id: 'port-1',
+    positions: [{ id: 'pos-1', symbol: '2382.TW', shares: 1000, buyPrice: 341.5, buyDate: '2026-09-23', totalCost: 341500 }],
+    closedPositions: [],
+  };
+  const p2 = {
+    id: 'port-1',
+    positions: [{ buyDate: '2026-09-23', buyPrice: 341.5, id: 'pos-1', shares: 1000, shortName: '廣達', symbol: '2382', totalCost: 341500 }],
+    closedPositions: undefined,
+  };
+  assert.equal(holdingsVersion(p1), holdingsVersion(p2));
+
+  // Empty portfolio is canonical
+  assert.equal(holdingsVersion({ id: 'p', positions: [], closedPositions: [] }), holdingsVersion({ id: 'p', positions: undefined, closedPositions: undefined }));
+
+  // Position change changes version
+  const pChanged = {
+    id: 'port-1',
+    positions: [{ id: 'pos-1', symbol: '2382', shares: 2000, buyPrice: 341.5, buyDate: '2026-09-23', totalCost: 683000 }],
+    closedPositions: [],
+  };
+  assert.notEqual(holdingsVersion(p1), holdingsVersion(pChanged));
+});
+
+

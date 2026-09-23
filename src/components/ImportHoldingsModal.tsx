@@ -187,7 +187,7 @@ export function ImportHoldingsModal({ portfolio, onClose, onConfirm }: Props) {
     if (lock.current || !preview) return;
     lock.current = true; setBusy('儲存持倉中…'); setError('');
     try { await onConfirm(rows, version, batchId); onClose(); }
-    catch (e) { setError((e as Error).message); setPreview(null); }
+    catch (e) { setError((e as Error).message); }
     finally { lock.current = false; setBusy(''); }
   }
 
