@@ -1,0 +1,12 @@
+// Small synthetic workbook for exercising real browser file selection.
+import { zipSync, strToU8 } from 'fflate';
+import { mkdir, writeFile } from 'node:fs/promises';
+const workbook = {
+  '[Content_Types].xml': '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+  '_rels/.rels': '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+  'xl/workbook.xml': '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="匯入測試" sheetId="1" r:id="rId1"/></sheets></workbook>',
+  'xl/_rels/workbook.xml.rels': '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+  'xl/worksheets/sheet1.xml': '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>股票代號</t></is></c><c r="B1" t="inlineStr"><is><t>股數</t></is></c><c r="C1" t="inlineStr"><is><t>價格</t></is></c><c r="D1" t="inlineStr"><is><t>日期</t></is></c><c r="E1" t="inlineStr"><is><t>操作</t></is></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>0050</t></is></c><c r="B2"><v>3000</v></c><c r="C2"><v>160</v></c><c r="D2" t="inlineStr"><is><t>2026-09-21</t></is></c><c r="E2" t="inlineStr"><is><t>設定</t></is></c></row></sheetData></worksheet>',
+};
+await mkdir('build', { recursive: true });
+await writeFile('build/import-fixture.xlsx', zipSync(Object.fromEntries(Object.entries(workbook).map(([path, xml]) => [path, strToU8(xml)]))));

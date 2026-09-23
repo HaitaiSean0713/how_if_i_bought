@@ -7,6 +7,8 @@ import { PositionCard, formatCurrency, formatPercent } from './components/Positi
 import { SellPositionModal } from './components/SellPositionModal';
 import { ClosedPositionCard } from './components/ClosedPositionCard';
 import { PortfolioModal } from './components/PortfolioModal';
+import { ImportHoldingsModal } from './components/ImportHoldingsModal';
+import { holdingsVersion, planHoldingImport, type ImportRow } from './lib/holdingImport';
 import { auth, db, loginWithGoogle, logout } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, setDoc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
@@ -26,6 +28,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'active' | 'closed' | 'compare'>('active');
   const [quotes, setQuotes] = useState<Record<string, QuoteData>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sellModalData, setSellModalData] = useState<{ position: Position, currentPrice?: number } | null>(null);
   const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
@@ -327,6 +330,15 @@ function App() {
 
   const handleRemovePosition = (id: string) => {
     void updateActivePortfolio(p => ({ ...p, positions: p.positions.filter(pos => pos.id !== id) })).catch(error => setOperationMessage(operationError(error)));
+  };
+
+  const handleImportHoldings = async (rows: ImportRow[], expectedVersion: string, batchId: string) => {
+    await updateActivePortfolio(current => {
+      if (holdingsVersion(current) !== expectedVersion) throw new Error('持倉已在其他視窗或裝置變更，請重新產生預覽。');
+      return planHoldingImport(current, rows, batchId).portfolio;
+    });
+    setActiveTab('active');
+    setIsImportOpen(false);
   };
 
   const handleRemoveClosedPosition = (id: string) => {
@@ -741,7 +753,8 @@ function App() {
                 </button>
               </div>
               {activeTab === 'active' && (
-                <div className="flex gap-2 justify-end">
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <button disabled={!activePortfolio || !!pendingAction} onClick={() => setIsImportOpen(true)} className="px-3 py-2 rounded border border-[#C5A059] text-[#C5A059] text-sm disabled:opacity-40">匯入文字／表格</button>
                   <button 
                     onClick={fetchQuotes}
                     disabled={isRefreshing || positions.length === 0}
@@ -904,6 +917,8 @@ function App() {
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAddPosition}
       />
+
+      {isImportOpen && activePortfolio && <ImportHoldingsModal key={activePortfolio.id} portfolio={activePortfolio} onClose={() => setIsImportOpen(false)} onConfirm={handleImportHoldings} />}
       
       <SellPositionModal
         isOpen={!!sellModalData}
