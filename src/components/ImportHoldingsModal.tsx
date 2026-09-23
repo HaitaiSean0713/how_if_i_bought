@@ -200,20 +200,20 @@ export function ImportHoldingsModal({ portfolio, onClose, onConfirm }: Props) {
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 350, damping: 25 }}
-      className="card-bg rounded-2xl border border-[#26262B] shadow-2xl w-full max-w-5xl max-h-[92dvh] overflow-y-auto p-5 sm:p-7 space-y-6"
+      className="apple-glass rounded-3xl border border-white/10 shadow-2xl w-full max-w-5xl max-h-[92dvh] overflow-y-auto p-5 sm:p-7 space-y-6"
     >
-      <div className="flex justify-between items-start gap-4 pb-4 border-b border-[#222226]">
+      <div className="flex justify-between items-start gap-4 pb-4 border-b border-white/[0.08]">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-lg bg-[#C5A059]/10 text-[#C5A059]">
-              <FileSpreadsheet size={22} />
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-white/10 text-white">
+              <FileSpreadsheet size={20} />
             </span>
-            <h2 id="import-title" className="text-xl serif gold-text">匯入持倉文字／表格／截圖</h2>
+            <h2 id="import-title" className="text-lg sm:text-xl font-bold tracking-tight text-white apple-title">匯入持倉文字／表格／截圖</h2>
           </div>
-          <p className="text-sm text-[#9CA3AF] mt-1.5 ml-10">目標組合：<span className="text-white font-medium">{portfolio.name}</span></p>
+          <p className="text-xs text-[#8E8E93] mt-1.5 ml-10">目標組合：<span className="text-white font-medium">{portfolio.name}</span></p>
         </div>
-        <button disabled={!!busy} onClick={onClose} aria-label="關閉匯入" className="p-2 rounded-lg text-[#6B7280] hover:text-[#E5E7EB] hover:bg-white/5 transition-colors disabled:opacity-40">
-          <X size={20} />
+        <button disabled={!!busy} onClick={onClose} aria-label="關閉匯入" className="p-1.5 rounded-full text-[#8E8E93] hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40">
+          <X size={18} />
         </button>
       </div>
 

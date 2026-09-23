@@ -36,17 +36,17 @@ export function PortfolioModal({ isOpen, onClose, onConfirm, initialName = '' }:
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 350, damping: 25 }}
-        className="card-bg rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-[#26262B]"
+        className="apple-glass rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-white/10"
       >
-        <div className="flex justify-between items-center p-6 border-b border-[#222226]">
+        <div className="flex justify-between items-center p-6 border-b border-white/[0.08]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-[#C5A059]/10 text-[#C5A059]">
-              <Briefcase size={20} />
+            <div className="p-2 rounded-xl bg-white/10 text-white">
+              <Briefcase size={18} />
             </div>
-            <h2 className="text-xl serif gold-text">{initialName ? '重新命名組合' : '新增投資組合'}</h2>
+            <h2 className="text-lg font-bold tracking-tight text-white apple-title">{initialName ? '重新命名組合' : '新增投資組合'}</h2>
           </div>
-          <button onClick={onClose} disabled={isSaving} aria-label="關閉" className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#E5E7EB] hover:bg-white/5 transition-colors">
-            <X size={20} />
+          <button onClick={onClose} disabled={isSaving} aria-label="關閉" className="p-1.5 rounded-full text-[#8E8E93] hover:text-white hover:bg-white/10 transition-colors">
+            <X size={18} />
           </button>
         </div>
         <form 

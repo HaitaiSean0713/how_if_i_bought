@@ -99,19 +99,19 @@ export function AddPositionModal({ isOpen, onClose, onAdd }: AddPositionModalPro
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        transition={{ type: 'spring', duration: 0.3, bounce: 0.1 }}
-        className="card-bg rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/10"
+        transition={{ type: 'spring', duration: 0.35, bounce: 0.12 }}
+        className="apple-glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-white/10"
       >
-        <div className="flex justify-between items-center p-6 border-b border-white/8 bg-white/2">
-          <h2 className="text-xl serif gold-gradient-text font-medium">新增部位</h2>
-          <button onClick={onClose} disabled={isLoading} className="text-[#9CA3AF] hover:text-white transition-colors p-1 rounded-md hover:bg-white/5">
-            <X size={20} />
+        <div className="flex justify-between items-center p-6 border-b border-white/[0.08]">
+          <h2 className="text-lg font-bold tracking-tight text-white apple-title">新增部位</h2>
+          <button onClick={onClose} disabled={isLoading} className="text-[#8E8E93] hover:text-white transition-colors p-1.5 rounded-full hover:bg-white/10">
+            <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && (
-            <div className="p-3 bg-rose-950/40 text-rose-300 text-sm rounded-xl border border-rose-900/60 leading-relaxed">
+            <div className="p-3 bg-rose-950/40 text-rose-300 text-xs rounded-2xl border border-rose-900/60 leading-relaxed">
               {error}
             </div>
           )}

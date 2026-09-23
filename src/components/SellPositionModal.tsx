@@ -85,23 +85,23 @@ export function SellPositionModal({ isOpen, onClose, position, currentPrice, onC
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 350, damping: 25 }}
-        className="card-bg rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-[#26262B]"
+        className="apple-glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-white/10"
       >
-        <div className="flex justify-between items-center p-6 border-b border-[#222226]">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
-              <TrendingDown size={20} />
+        <div className="flex justify-between items-center p-6 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-rose-500/10 text-[#FF453A]">
+              <TrendingDown size={18} />
             </div>
-            <h2 className="text-xl serif gold-text">部位平倉 (賣出)</h2>
+            <h2 className="text-lg font-bold tracking-tight text-white apple-title">部位平倉 (賣出)</h2>
           </div>
-          <button onClick={onClose} disabled={isLoading} aria-label="關閉" className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#E5E7EB] hover:bg-white/5 transition-colors">
-            <X size={20} />
+          <button onClick={onClose} disabled={isLoading} aria-label="關閉" className="p-1.5 rounded-full text-[#8E8E93] hover:text-white hover:bg-white/10 transition-colors">
+            <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && (
-            <div className="p-3 bg-red-900/20 text-[#F87171] text-sm rounded-xl border border-red-900/50">
+            <div className="p-3 bg-rose-950/40 text-rose-300 text-xs rounded-2xl border border-rose-900/60 leading-relaxed">
               {error}
             </div>
           )}
